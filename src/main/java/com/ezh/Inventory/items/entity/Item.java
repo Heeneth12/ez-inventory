@@ -19,30 +19,33 @@ public class Item extends CommonSerializable {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "description", columnDefinition = "text")
-    private String description;
-
     @Column(name = "item_code", nullable = false, unique = true)
     private String itemCode;
 
     @Column(name = "sku")
-    private String sku;
+    private String sku; // Stock Keeping Unit
 
     @Column(name = "barcode")
-    private String barcode;
+    private String barcode; // UPC / EAN / QR
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ItemType type;
+    private ItemType itemType;
 
-    // Classification
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(name = "category")
     private String category;
 
     @Column(name = "unit_of_measure")
     private String unitOfMeasure;
 
-    // Pricing
+    private String brand;
+
+    @Column(name = "manufacturer")
+    private String manufacturer;
+
     @Column(name = "purchase_price", precision = 18, scale = 2)
     private BigDecimal purchasePrice;
 
@@ -58,22 +61,12 @@ public class Item extends CommonSerializable {
     @Column(name = "discount_percentage", precision = 5, scale = 2)
     private BigDecimal discountPercentage;
 
-    // Inventory
-    @Column(name = "opening_stock")
-    private Integer openingStock;
-
-    @Column(name = "reorder_level")
-    private Integer reorderLevel;
-
-    @Column(name = "warehouse_id")
-    private String warehouseId;
-
-    // Tax Compliance
     @Column(name = "hsn_sac_code")
     private String hsnSacCode;
 
-    // Status Flags
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     @Column(name = "is_active")
     private Boolean isActive;
-
 }

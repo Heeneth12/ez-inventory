@@ -3,15 +3,18 @@ package com.ezh.Inventory.items.service;
 import com.ezh.Inventory.items.dto.ItemDto;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
+import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -22,39 +25,41 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional
-    public String createItem(ItemDto itemDto) throws CommonException {
+    public CommonResponse createItem(ItemDto itemDto) throws CommonException {
         log.info("Creating new item: {}", itemDto);
         if (itemRepository.existsByItemCode(itemDto.getItemCode())) {
             throw new BadRequestException("Item Code already exists");
         }
         Item item = convertToEntity(itemDto);
         itemRepository.save(item);
-        return "ITEM_CREATED_SUCCESSFULLY";
+        return CommonResponse.builder()
+                .id(item.getId().toString())
+                .message("")
+                .status(Status.SUCCESS)
+                .build();
     }
 
     @Override
     @Transactional
-    public String updateItem(Long id, ItemDto itemDto) {
+    public CommonResponse updateItem(Long id, ItemDto dto) {
         log.info("Updating item id: {}", id);
 
         Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new BadRequestException("Item not found"));
 
-        item.setName(itemDto.getName());
-        item.setDescription(itemDto.getDescription());
-        item.setCategory(itemDto.getCategory());
-        item.setSellingPrice(itemDto.getSellingPrice());
-        item.setPurchasePrice(itemDto.getPurchasePrice());
-        item.setTaxPercentage(itemDto.getTaxPercentage());
-        item.setDiscountPercentage(itemDto.getDiscountPercentage());
-        item.setUnitOfMeasure(itemDto.getUnitOfMeasure());
-        item.setReorderLevel(itemDto.getReorderLevel());
+        mapDtoToEntity(dto, item);
         itemRepository.save(item);
-        return "ITEM_UPDATED_SUCCESSFULLY";
+
+        return CommonResponse.builder()
+                .id(item.getId().toString())
+                .message("ITEM_UPDATED_SUCCESSFULLY")
+                .status(Status.SUCCESS)
+                .build();
     }
 
 
     @Override
+    @Transactional(readOnly = true)
     public ItemDto getItemById(Long id) {
         log.info("Fetching item by id: {}", id);
 
@@ -65,26 +70,42 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public List<ItemDto> getAllItems() {
+    public Page<ItemDto> getAllItems(Integer page, Integer size) {
         log.info("Fetching all items");
 
-        return itemRepository.findAllByIsActiveTrue().stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+
+        Page<Item> itemsPage = itemRepository.findAll(pageable);
+
+        return itemsPage.map(this::convertToDto);
     }
 
     @Override
     @Transactional
-    public String toggleItemActiveStatus(Long itemId) {
-        log.info("Toggling active status for item {}", itemId);
+    public CommonResponse toggleItemActiveStatus(Long itemId, Boolean active) {
+        log.info("Updating active status for item {} → {}", itemId, active);
 
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new BadRequestException("ITEM_NOT_FOUND"));
 
-        boolean updatedStatus = !item.getIsActive();
-        item.setIsActive(updatedStatus);
+        // Already same — no update required
+        if (item.getIsActive().equals(active)) {
+            return CommonResponse.builder()
+                    .id(item.getId().toString())
+                    .message(active ? "ITEM_ALREADY_ACTIVE" : "ITEM_ALREADY_INACTIVE")
+                    .status(Status.SUCCESS)
+                    .build();
+        }
+
+        // Update status
+        item.setIsActive(active);
         itemRepository.save(item);
-        return updatedStatus ? "ITEM_ACTIVATED" : "ITEM_DEACTIVATED";
+
+        return CommonResponse.builder()
+                .id(item.getId().toString())
+                .message(active ? "ITEM_ACTIVATED" : "ITEM_DEACTIVATED")
+                .status(Status.SUCCESS)
+                .build();
     }
 
 
@@ -92,22 +113,22 @@ public class ItemServiceImpl implements ItemService {
     private Item convertToEntity(ItemDto dto) {
         return Item.builder()
                 .name(dto.getName())
-                .description(dto.getDescription())
                 .itemCode(dto.getItemCode())
                 .sku(dto.getSku())
                 .barcode(dto.getBarcode())
-                .type(dto.getType())
+                .itemType(dto.getItemType())
                 .category(dto.getCategory())
+                .brand(dto.getBrand())
+                .manufacturer(dto.getManufacturer()) // if manufacturer stored in "model" field, else change accordingly
                 .unitOfMeasure(dto.getUnitOfMeasure())
                 .purchasePrice(dto.getPurchasePrice())
                 .sellingPrice(dto.getSellingPrice())
                 .mrp(dto.getMrp())
                 .taxPercentage(dto.getTaxPercentage())
                 .discountPercentage(dto.getDiscountPercentage())
-                .openingStock(dto.getOpeningStock())
-                .reorderLevel(dto.getReorderLevel())
-                .warehouseId(dto.getWarehouseId())
                 .hsnSacCode(dto.getHsnSacCode())
+                .description(dto.getDescription())
+                .imageUrl(dto.getImageUrl())
                 .isActive(dto.getIsActive())
                 .build();
     }
@@ -117,17 +138,44 @@ public class ItemServiceImpl implements ItemService {
         return ItemDto.builder()
                 .id(item.getId())
                 .name(item.getName())
-                .description(item.getDescription())
                 .itemCode(item.getItemCode())
+                .sku(item.getSku())
+                .barcode(item.getBarcode())
+                .itemType(item.getItemType())
                 .category(item.getCategory())
+                .brand(item.getBrand())
+                .manufacturer(item.getManufacturer())
                 .unitOfMeasure(item.getUnitOfMeasure())
                 .purchasePrice(item.getPurchasePrice())
                 .sellingPrice(item.getSellingPrice())
+                .mrp(item.getMrp())
                 .taxPercentage(item.getTaxPercentage())
                 .discountPercentage(item.getDiscountPercentage())
-                .openingStock(item.getOpeningStock())
-                .reorderLevel(item.getReorderLevel())
+                .hsnSacCode(item.getHsnSacCode())
+                .description(item.getDescription())
+                .imageUrl(item.getImageUrl())
                 .isActive(item.getIsActive())
                 .build();
+    }
+
+    private void mapDtoToEntity(ItemDto dto, Item item) {
+        item.setName(dto.getName());
+        item.setItemCode(dto.getItemCode());
+        item.setSku(dto.getSku());
+        item.setBarcode(dto.getBarcode());
+        item.setItemType(dto.getItemType());
+        item.setCategory(dto.getCategory());
+        item.setBrand(dto.getBrand());
+        item.setManufacturer(dto.getManufacturer());
+        item.setUnitOfMeasure(dto.getUnitOfMeasure());
+        item.setPurchasePrice(dto.getPurchasePrice());
+        item.setSellingPrice(dto.getSellingPrice());
+        item.setMrp(dto.getMrp());
+        item.setTaxPercentage(dto.getTaxPercentage());
+        item.setDiscountPercentage(dto.getDiscountPercentage());
+        item.setHsnSacCode(dto.getHsnSacCode());
+        item.setDescription(dto.getDescription());
+        item.setImageUrl(dto.getImageUrl());
+        item.setIsActive(dto.getIsActive());
     }
 }

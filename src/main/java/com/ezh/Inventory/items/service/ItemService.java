@@ -1,15 +1,15 @@
 package com.ezh.Inventory.items.service;
 
 import com.ezh.Inventory.items.dto.ItemDto;
-
-import java.util.List;
+import com.ezh.Inventory.utils.common.CommonResponse;
+import org.springframework.data.domain.Page;
 
 public interface ItemService {
 
-    String createItem(ItemDto itemDto);
-    String updateItem(Long id, ItemDto itemDto);
+    CommonResponse createItem(ItemDto itemDto);
+    CommonResponse updateItem(Long id, ItemDto itemDto);
     ItemDto getItemById(Long id);
-    List<ItemDto> getAllItems();
-    String toggleItemActiveStatus(Long id);
+    Page<ItemDto> getAllItems(Integer page, Integer size);
+    CommonResponse toggleItemActiveStatus(Long id, Boolean active);
 
 }
