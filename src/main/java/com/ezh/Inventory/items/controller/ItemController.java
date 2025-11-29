@@ -17,7 +17,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "*")
 @RequestMapping("/v1/items")
 @RequiredArgsConstructor
 public class ItemController {
@@ -26,16 +26,17 @@ public class ItemController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<CommonResponse> createItem(@RequestBody ItemDto itemDto) throws CommonException {
-        log.info("Creating new item with SKU: {}", itemDto);
+        log.info("Entering createItem with : {}", itemDto);
         CommonResponse response = itemService.createItem(itemDto);
-        return ResponseResource.success(HttpStatus.CREATED, response, "ITEM CREATED SUCCESSFULLY");
+        return ResponseResource.success(HttpStatus.CREATED, response, "Item created successfully");
     }
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<ItemDto>> getAllItems(@RequestParam Integer page, @RequestParam Integer size) throws CommonException {
-        log.info("Fetching all items");
-        Page<ItemDto> response = itemService.getAllItems(page, size);
-        return ResponseResource.success(HttpStatus.OK, response, "ITEM LIST FETCHED");
+    public ResponseResource<Page<ItemDto>> getAllItems(@RequestParam Integer page, @RequestParam Integer size,
+        @RequestBody ItemFilterDto itemFilterDto ) throws CommonException {
+        log.info("Entering getAllItems with page: {}, size: {}, filter {}", page, size, itemFilterDto);
+        Page<ItemDto> response = itemService.getAllItems(page, size, itemFilterDto);
+        return ResponseResource.success(HttpStatus.OK, response, "Item list fetched successfully");
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -60,7 +61,7 @@ public class ItemController {
     }
 
     @PostMapping(value = "/search",consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<List<ItemDto>> searchItems(@RequestBody ItemFilterDto itemFilter) {
+    public ResponseResource<List<ItemDto>> searchItems(@RequestBody ItemFilterDto itemFilter) throws CommonException {
         log.info("Searching items by query: {}", itemFilter);
         List<ItemDto> response = itemService.itemSearch(itemFilter);
         return ResponseResource.success(HttpStatus.OK, response, "SEARCH RESULTS");

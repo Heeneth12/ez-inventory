@@ -1,6 +1,9 @@
 package com.ezh.Inventory.items.repository;
 
 import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.items.entity.ItemType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,4 +32,24 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
                     i.name ASC
             """)
     List<Item> smartSearch(@Param("query") String query);
+
+    @Query("""
+                SELECT i FROM Item i 
+                WHERE 
+                    (:searchQuery IS NULL 
+                        OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
+                        OR LOWER(i.itemCode) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
+                        OR LOWER(i.barcode) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
+                    )
+                    AND (:active IS NULL OR i.isActive = :active)
+                    AND (:itemType IS NULL OR i.itemType = :itemType)
+                    AND (:brand IS NULL OR LOWER(i.brand) LIKE LOWER(CONCAT('%', :brand, '%')))
+                    AND (:category IS NULL OR LOWER(i.category) LIKE LOWER(CONCAT('%', :category, '%')))
+            """)
+    Page<Item> searchItems(String searchQuery,
+                           Boolean active,
+                           ItemType itemType,
+                           String brand,
+                           String category,
+                           Pageable pageable);
 }

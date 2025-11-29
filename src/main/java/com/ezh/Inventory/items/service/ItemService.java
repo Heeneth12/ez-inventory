@@ -13,7 +13,7 @@ public interface ItemService {
     CommonResponse createItem(ItemDto itemDto);
     CommonResponse updateItem(Long id, ItemDto itemDto);
     ItemDto getItemById(Long id);
-    Page<ItemDto> getAllItems(Integer page, Integer size);
+    Page<ItemDto> getAllItems(Integer page, Integer size, ItemFilterDto itemFilterDto);
     CommonResponse toggleItemActiveStatus(Long id, Boolean active);
     List<ItemDto> itemSearch(ItemFilterDto itemFilter) throws CommonException;
 
