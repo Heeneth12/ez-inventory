@@ -19,6 +19,9 @@ public class Item extends CommonSerializable {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "item_code", nullable = false, unique = true)
     private String itemCode;
 
