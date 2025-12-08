@@ -9,12 +9,14 @@ import com.ezh.Inventory.employee.entity.Employee;
 import com.ezh.Inventory.employee.repository.EmployeeRepository;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
-import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +33,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public CommonResponse createEmployee(EmployeeDto employeeDto) throws CommonException {
         log.info("Creating Employee {}", employeeDto);
 
-        Employee employee = new Employee();
-        BeanUtils.copyProperties(employeeDto, employee);
+        Employee employee = toEntity(employeeDto);
 
         employeeRepository.save(employee);
         return CommonResponse
@@ -49,13 +50,20 @@ public class EmployeeServiceImpl implements EmployeeService {
         log.info("Updating Employee {}", id);
 
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new BadRequestException("Employee Not Found"));
+                .orElseThrow(() -> new CommonException("Employee Not Found", HttpStatus.NOT_FOUND));
 
-        // Copy main employee fields except address
-        BeanUtils.copyProperties(employeeDto, employee, "address", "id", "uuid");
+        employee.setEmployeeCode(employeeDto.getEmployeeCode());
+        employee.setFirstName(employeeDto.getFirstName());
+        employee.setLastName(employeeDto.getLastName());
+        employee.setGender(employeeDto.getGender());
+        employee.setRole(employeeDto.getRole());
+        employee.setOfficialEmail(employeeDto.getOfficialEmail());
+        employee.setPersonalEmail(employeeDto.getPersonalEmail());
+        employee.setContactNumber(employeeDto.getContactNumber());
+        employee.setActive(employeeDto.getActive());
 
-        // Update address separately
-        updateEmployeeAddress(employee, employeeDto.getAddress());
+        // Update nested address
+        employee.setAddress(convertAddress(employeeDto.getAddress()));
 
         employeeRepository.save(employee);
 
@@ -68,12 +76,11 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional(readOnly = true)
     public EmployeeDto getEmployee(Long id) throws CommonException {
+        log.info("get");
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new BadRequestException("Employee Not Found"));
+                .orElseThrow(() -> new CommonException("Employee Not Found", HttpStatus.NOT_FOUND));
 
-        EmployeeDto employeeDto = new EmployeeDto();
-        BeanUtils.copyProperties(employee, employeeDto);
-        return employeeDto;
+        return entityToDto(employee);
     }
 
 
@@ -86,11 +93,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         Page<Employee> employees = employeeRepository.findAll(pageable);
 
-        return employees.map(employee -> {
-            EmployeeDto dto = new EmployeeDto();
-            BeanUtils.copyProperties(employee, dto);
-            return dto;
-        });
+        return employees.map(this::entityToDto);
     }
 
 
@@ -98,7 +101,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public CommonResponse toggleStatus(Long id, Boolean active) throws CommonException {
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new BadRequestException("Employee Not Found"));
+                .orElseThrow(() -> new CommonException("Employee Not Found", HttpStatus.NOT_FOUND));
 
         employee.setActive(active);
         employeeRepository.save(employee);
@@ -109,14 +112,65 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .build();
     }
 
-
-    /**
-     * Private helper method to update Address of Employee
-     */
-    private void updateEmployeeAddress(Employee employee, AddressDto addressDto) {
-        if (addressDto == null) return;
-        Address address = employee.getAddress();
-        BeanUtils.copyProperties(addressDto, address, "id", "uuid", "createdAt", "updatedAt");
-        employee.setAddress(address);
+    private Address convertAddress(AddressDto dto) {
+        if (dto == null) return null;
+        return Address.builder()
+                .addressLine1(dto.getAddressLine1())
+                .addressLine2(dto.getAddressLine2())
+                .city(dto.getCity())
+                .state(dto.getState())
+                .country(dto.getCountry())
+                .pinCode(dto.getPinCode())
+                .type(dto.getType())
+                .build();
     }
+
+    public Employee toEntity(EmployeeDto dto) {
+        if (dto == null) return null;
+        return Employee.builder()
+                .employeeCode(dto.getEmployeeCode())
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
+                .gender(dto.getGender())
+                .role(dto.getRole())
+                .officialEmail(dto.getOfficialEmail())
+                .personalEmail(dto.getPersonalEmail())
+                .contactNumber(dto.getContactNumber())
+                .active(dto.getActive())
+                .address(convertAddress(dto.getAddress()))
+                .build();
+    }
+
+
+    private EmployeeDto entityToDto(Employee entity) {
+        if (entity == null) return null;
+        return EmployeeDto.builder()
+                .id(entity.getId())
+                .employeeCode(entity.getEmployeeCode())
+                .firstName(entity.getFirstName())
+                .lastName(entity.getLastName())
+                .gender(entity.getGender())
+                .role(entity.getRole())
+                .officialEmail(entity.getOfficialEmail())
+                .personalEmail(entity.getPersonalEmail())
+                .contactNumber(entity.getContactNumber())
+                .active(entity.getActive())
+                .address(EntityToAddressDto(entity.getAddress()))
+                .build();
+    }
+
+    private AddressDto EntityToAddressDto(Address entity) {
+        if (entity == null) return null;
+        return AddressDto.builder()
+                .id(entity.getId())
+                .addressLine1(entity.getAddressLine1())
+                .addressLine2(entity.getAddressLine2())
+                .city(entity.getCity())
+                .state(entity.getState())
+                .country(entity.getCountry())
+                .pinCode(entity.getPinCode())
+                .type(entity.getType())
+                .build();
+    }
+
 }

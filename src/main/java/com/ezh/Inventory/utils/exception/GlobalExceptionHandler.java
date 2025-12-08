@@ -7,34 +7,42 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
 @Slf4j
-@ControllerAdvice("/")
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(CommonException.class)
-    public ResponseResource<ErrorResponse> handleCommonException(CommonException ex) {
+    public ResponseEntity<ResponseResource<?>> handleCommonException(CommonException ex) {
         log.error("Service Exception occurred: {}", ex.getMessage());
-        return ResponseResource.error(ex.getHttpStatus(), ex.getMessage());
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseResource<ErrorResponse> handleGenericException(Exception ex) {
-        log.error("Unexpected error occurred {}", ex.getMessage());
-        return ResponseResource.error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        return new ResponseEntity<>(
+                ResponseResource.error(ex.getHttpStatus(), ex.getMessage()),
+                ex.getHttpStatus()
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseResource<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ResponseResource<?>> handleValidationException(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors()
                 .stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
-
         log.error("Validation failed: {}", errorMessage);
-        return ResponseResource.error(HttpStatus.BAD_REQUEST, errorMessage);
+        return new ResponseEntity<>(
+                ResponseResource.error(HttpStatus.BAD_REQUEST, errorMessage),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ResponseResource<?>> handleGenericException(Exception ex) {
+        log.error("Unexpected error occurred {}", ex.getMessage());
+        return new ResponseEntity<>(
+                ResponseResource.error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage()),
+                HttpStatus.INTERNAL_SERVER_ERROR
+        );
     }
 }
