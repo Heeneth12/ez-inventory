@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.invoice.entity;
 
-import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,9 +19,26 @@ public class InvoiceItem extends CommonSerializable {
     @JoinColumn(name = "invoice_id", nullable = false)
     private Invoice invoice;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id", nullable = false)
-    private Item item;
+    // --- LINK TO SALES ORDER (For Partial Invoicing) ---
+    // This tells us exactly which line from the Sales Order is being billed.
+    // Essential for updating 'invoicedQty' on the SO.
+    @Column(name = "so_item_id")
+    private Long soItemId;
+
+    @Column(name = "item_id", nullable = false)
+    private Long itemId;
+
+    @Column(name = "item_name", nullable = false)
+    private String itemName;
+
+    @Column(name = "sku")
+    private String sku;
+
+    // --- STOCK CONTROL ---
+    // Critical for Profit Calculation.
+    // Tells the StockService exactly which cost price to use from the Ledger.
+    @Column(name = "batch_number")
+    private String batchNumber;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
@@ -30,11 +46,13 @@ public class InvoiceItem extends CommonSerializable {
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
 
+    @Builder.Default
     @Column(name = "discount_amount")
-    private BigDecimal discountAmount; // optional per item
+    private BigDecimal discountAmount = BigDecimal.ZERO; // optional per item
 
+    @Builder.Default
     @Column(name = "tax_amount")
-    private BigDecimal taxAmount; // tax per item
+    private BigDecimal taxAmount = BigDecimal.ZERO; // tax per item
 
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal; // qty × price − discount + tax
