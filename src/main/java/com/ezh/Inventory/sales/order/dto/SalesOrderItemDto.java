@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class SalesOrderItemDto {
+    private Long id;
     private Long itemId; // selected item ID
     private String itemName;
     private Integer quantity;

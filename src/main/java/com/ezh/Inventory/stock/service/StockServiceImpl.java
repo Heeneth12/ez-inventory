@@ -245,9 +245,14 @@ public class StockServiceImpl implements StockService {
     }
 
     private StockDto convertToDTO(Stock stock) {
+
+        String itemName = itemRepository.findNameById(stock.getItemId())
+                .orElseThrow(() -> new CommonException("item not found", HttpStatus.NOT_FOUND));
+
         return StockDto.builder()
                 .id(stock.getId())
                 .itemId(stock.getItemId())
+                .itemName(itemName)
                 .warehouseId(stock.getWarehouseId())
                 .openingQty(stock.getOpeningQty())
                 .inQty(stock.getInQty())
@@ -257,9 +262,14 @@ public class StockServiceImpl implements StockService {
     }
 
     private StockLedgerDto convertToDTO(StockLedger stockLedger) {
+
+        String itemName = itemRepository.findNameById(stockLedger.getItemId())
+                .orElseThrow(() -> new CommonException("item not found", HttpStatus.NOT_FOUND));
+
         return StockLedgerDto.builder()
                 .id(stockLedger.getId())
                 .itemId(stockLedger.getItemId())
+                .itemName(itemName)
                 .warehouseId(stockLedger.getWarehouseId())
                 .transactionType(stockLedger.getTransactionType())
                 .quantity(stockLedger.getQuantity())

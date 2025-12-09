@@ -236,6 +236,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (so.getItems() != null) {
             for (SalesOrderItem item : so.getItems()) {
                 itemDtos.add(SalesOrderItemDto.builder()
+                        .id(item.getId())
                         .itemId(item.getItemId())
                         .itemName(item.getItemName()) // Read from Snapshot
                         .orderedQty(item.getOrderedQty())

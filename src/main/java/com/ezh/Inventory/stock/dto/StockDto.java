@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 public class StockDto {
     private Long id;
     private Long itemId;
+    private String itemName;
     private Long tenantId;
     private Long warehouseId;
     private Integer openingQty = 0;

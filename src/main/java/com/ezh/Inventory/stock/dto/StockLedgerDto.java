@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class StockLedgerDto {
     private Long id;
     private Long itemId;
+    private String itemName;
     private Long tenantId;
     private Long warehouseId;
     private MovementType transactionType;
