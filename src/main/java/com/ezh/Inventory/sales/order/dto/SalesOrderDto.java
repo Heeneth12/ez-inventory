@@ -4,7 +4,7 @@ import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Getter
@@ -18,12 +18,13 @@ public class SalesOrderDto {
     private Long tenantId;
     private Long warehouseId;
     private String orderNumber;   // SO-001, SO-2025-001
-    private LocalDate orderDate;
+    private Date orderDate;
     private Long customerId;      // Contact ID (Customer)
     private String customerName;
     private String paymentTerms;// "Net 30", "Advance", etc.
     private BigDecimal subTotal;
     private BigDecimal totalDiscount;
+    private BigDecimal totalTax;
     private BigDecimal totalDiscountPer;
     private SalesOrderStatus status;
     private BigDecimal grandTotal;

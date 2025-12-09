@@ -6,8 +6,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Entity
@@ -33,7 +33,7 @@ public class SalesOrder extends CommonSerializable {
     private Contact customer;
 
     @Column(name = "order_date", nullable = false)
-    private LocalDate orderDate;
+    private Date orderDate;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30, nullable = false)

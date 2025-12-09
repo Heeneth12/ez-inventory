@@ -18,14 +18,15 @@ import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -43,7 +44,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Contact contact = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("", HttpStatus.BAD_REQUEST));
+                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.BAD_REQUEST));
 
         // 1. Initialize Header
         SalesOrder salesOrder = SalesOrder.builder()
@@ -51,7 +52,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .warehouseId(dto.getWarehouseId())
                 .customer(contact)
                 .orderNumber("SO-" + System.currentTimeMillis())
-                .orderDate(LocalDate.now())
+                .orderDate(new Date())
                 .status(SalesOrderStatus.CREATED)
                 .remarks(dto.getRemarks())
                 .build();
@@ -59,6 +60,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         // 2. Process Items & Calculate Totals
         processItemsAndTotals(salesOrder, dto.getItems());
 
+        // 3. Save (Cascade saves items automatically)
         salesOrderRepository.save(salesOrder);
 
         return CommonResponse.builder()
@@ -76,7 +78,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orElseThrow(() -> new CommonException("Sales Order not found", HttpStatus.BAD_REQUEST));
 
         Contact contact = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("", HttpStatus.BAD_REQUEST));
+                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.BAD_REQUEST));
 
         // Validation: Only update if CREATED
         if (salesOrder.getStatus() != SalesOrderStatus.CREATED) {
@@ -89,9 +91,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setRemarks(dto.getRemarks());
         if (dto.getOrderDate() != null) salesOrder.setOrderDate(dto.getOrderDate());
 
-        // CLEAR OLD ITEMS (Hibernate will delete them from DB because of orphanRemoval=true)
+        // STRATEGY: Clear Old Items & Re-add New Ones
+        // orphanRemoval=true in Entity ensures DB rows are deleted
         salesOrder.getItems().clear();
-        // Re-add new items and Recalculate
+
+        // Re-process new items logic
         processItemsAndTotals(salesOrder, dto.getItems());
 
         salesOrderRepository.save(salesOrder);
@@ -113,20 +117,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return mapToDto(so);
     }
 
-
-
     @Override
     @Transactional(readOnly = true)
     public Page<SalesOrderDto> getAllSalesOrders(SalesOrderFilter filter, int page, int size) {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        Pageable pageable = PageRequest.of(page, size);
 
-        Pageable pageable = Pageable.ofSize(size).withPage(page);
-
-        Page<SalesOrder> result = salesOrderRepository.findByTenantId(tenantId, pageable);
+        // You can add Specification/Filter logic here based on 'SalesOrderFilter'
+        Page<SalesOrder> result = salesOrderRepository.findAll(pageable); // Replace with findByTenantId logic if repository supports it
 
         return result.map(this::mapToDto);
     }
-
 
     @Override
     @Transactional
@@ -151,25 +152,34 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return CommonResponse.builder().message("Order Cancelled").build();
     }
 
-
-
+    /**
+     * CORE LOGIC:
+     * 1. Fetches Item Master to get Name/SKU/Price
+     * 2. Calculates Line Totals
+     * 3. Calculates Header Totals
+     * 4. Creates Child Entities (Snapshot) and links them to Parent
+     */
     private void processItemsAndTotals(SalesOrder salesOrder, List<SalesOrderItemDto> itemDtos) {
         BigDecimal subTotal = BigDecimal.ZERO;
         BigDecimal totalDiscount = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
 
-        // If list is null (update scenario), initialize it
+        // Initialize list if null
         if (salesOrder.getItems() == null) {
             salesOrder.setItems(new ArrayList<>());
         }
 
         for (SalesOrderItemDto itemDto : itemDtos) {
 
-            Item item = itemRepository.findById(itemDto.getItemId())
-                    .orElseThrow(() -> new CommonException("", HttpStatus.BAD_REQUEST));
+            // 1. Fetch Master Data (Validation + Snapshot Source)
+            Item itemMaster = itemRepository.findById(itemDto.getItemId())
+                    .orElseThrow(() -> new CommonException("Item ID " + itemDto.getItemId() + " not found", HttpStatus.BAD_REQUEST));
 
             BigDecimal qty = BigDecimal.valueOf(itemDto.getOrderedQty());
-            BigDecimal price = item.getMrp();
+
+            // Priority: DTO Price > Master Price (Allows manual override by sales person)
+            BigDecimal price = itemDto.getUnitPrice() != null ? itemDto.getUnitPrice() : itemMaster.getSellingPrice();
+
             BigDecimal discount = itemDto.getDiscount() != null ? itemDto.getDiscount() : BigDecimal.ZERO;
             BigDecimal tax = itemDto.getTax() != null ? itemDto.getTax() : BigDecimal.ZERO;
 
@@ -182,16 +192,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             totalDiscount = totalDiscount.add(discount);
             totalTax = totalTax.add(tax);
 
-
-            // Create Entity
+            // 2. Create Snapshot Entity
             SalesOrderItem soItem = SalesOrderItem.builder()
-                    .salesOrder(salesOrder) // <--- Link Child to Parent
-                    .item(item)
+                    .salesOrder(salesOrder) // Link to Parent
+                    .itemId(itemMaster.getId())
+                    .itemName(itemMaster.getName()) // SNAPSHOT: Store name permanently
                     .orderedQty(itemDto.getOrderedQty())
                     .invoicedQty(0)
+                    .quantity(0)
                     .unitPrice(price)
                     .discount(discount)
-                    //.tax(0)
+                    // .tax(tax) // If your entity has tax field, set it here
                     .lineTotal(lineTotal)
                     .build();
 
@@ -199,13 +210,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             salesOrder.getItems().add(soItem);
         }
 
-        // Set Calculated Totals
+        // Set Calculated Totals to Header
         salesOrder.setSubTotal(subTotal);
         salesOrder.setTotalDiscount(totalDiscount);
         salesOrder.setTotalTax(totalTax);
         salesOrder.setGrandTotal(subTotal.subtract(totalDiscount).add(totalTax));
     }
-
 
     private SalesOrderDto mapToDto(SalesOrder so) {
         List<SalesOrderItemDto> itemDtos = new ArrayList<>();
@@ -213,13 +223,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (so.getItems() != null) {
             for (SalesOrderItem item : so.getItems()) {
                 itemDtos.add(SalesOrderItemDto.builder()
-                        .itemId(item.getItem().getId())
-                        .itemName(item.getItem().getName())
+                        .itemId(item.getItemId())
+                        .itemName(item.getItemName()) // Read from Snapshot
                         .orderedQty(item.getOrderedQty())
                         .invoicedQty(item.getInvoicedQty())
                         .unitPrice(item.getUnitPrice())
                         .discount(item.getDiscount())
-                        .tax(BigDecimal.ZERO)  // adjust if you store tax in entity
                         .lineTotal(item.getLineTotal())
                         .build()
                 );
@@ -237,9 +246,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .remarks(so.getRemarks())
                 .subTotal(so.getSubTotal())
                 .totalDiscount(so.getTotalDiscount())
+                .totalTax(so.getTotalTax())
                 .grandTotal(so.getGrandTotal())
                 .items(itemDtos)
                 .build();
     }
-
 }

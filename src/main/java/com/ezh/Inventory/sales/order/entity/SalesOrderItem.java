@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.order.entity;
 
-import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,9 +19,11 @@ public class SalesOrderItem extends CommonSerializable {
     @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id", nullable = false)
-    private Item item;
+    @Column(name = "item_id", nullable = false)
+    private Long itemId;
+
+    @Column(name = "item_name", nullable = false)
+    private String itemName;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
