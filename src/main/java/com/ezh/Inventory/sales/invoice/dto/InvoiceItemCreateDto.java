@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 public class InvoiceItemCreateDto {
+    private Long id;
     private Long soItemId; // Link to specific SO Line
     private Long itemId;
     private Integer quantity;

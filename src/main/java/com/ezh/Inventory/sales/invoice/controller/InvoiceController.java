@@ -27,7 +27,15 @@ public class InvoiceController {
     public ResponseResource<CommonResponse> createInvoice(@RequestBody InvoiceCreateDto invoiceDto) throws CommonException {
         log.info("Entering createInvoice with : {}", invoiceDto);
         CommonResponse response = invoiceService.createInvoice(invoiceDto);
-        return ResponseResource.success(HttpStatus.CREATED, response, "Item created successfully");
+        return ResponseResource.success(HttpStatus.CREATED, response, "Invoice created successfully");
+    }
+
+    @PostMapping(value = "/{invoiceId}/update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse> updateInvoice(@PathVariable Long invoiceId,
+                                                          @RequestBody InvoiceCreateDto invoiceDto) throws CommonException {
+        log.info("Entering updateInvoice with : {}", invoiceDto);
+        CommonResponse response = invoiceService.updateInvoice(invoiceId, invoiceDto);
+        return ResponseResource.success(HttpStatus.CREATED, response, "Invoice updated successfully");
     }
 
     @GetMapping(value = "/{invoiceId}", produces = MediaType.APPLICATION_JSON_VALUE)

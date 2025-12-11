@@ -17,6 +17,7 @@ public class InvoiceCreateDto {
     private Long customerId;
     private Long warehouseId;
     private String customerName;
+    private Date invoiceDate;
     private List<InvoiceItemCreateDto> items;
     private BigDecimal discountAmount;
     private String remarks;

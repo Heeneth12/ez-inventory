@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 public interface InvoiceService {
 
    CommonResponse createInvoice(InvoiceCreateDto dto) throws CommonException;
+   CommonResponse updateInvoice(Long id, InvoiceCreateDto dto) throws CommonException;
    InvoiceDto getInvoiceById(Long invoiceId) throws CommonException;
    Page<InvoiceDto> getAllInvoices(Integer page, Integer size) throws CommonException;
 }

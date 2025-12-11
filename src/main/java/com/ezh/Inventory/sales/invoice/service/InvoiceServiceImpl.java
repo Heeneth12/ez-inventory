@@ -110,6 +110,49 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .build();
     }
 
+
+    @Override
+    @Transactional
+    public CommonResponse updateInvoice(Long id, InvoiceCreateDto dto) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        //Fetch Existing Invoice
+        Invoice invoice = invoiceRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
+
+        //Validation: Prevent editing if already Processed/Paid
+        if (invoice.getStatus() != InvoiceStatus.PENDING) {
+            throw new BadRequestException("Cannot edit invoice with status: " + invoice.getStatus());
+        }
+
+        //Update Header Fields
+        invoice.setRemarks(dto.getRemarks());
+        invoice.setInvoiceDate(dto.getInvoiceDate() != null ? dto.getInvoiceDate() : invoice.getInvoiceDate());
+
+        // NOTE: Changing Warehouse or Customer often requires full reset.
+        // Assuming Warehouse is locked for now to prevent cross-warehouse stock corruption.
+
+        //Process Item Changes (The Core Logic)
+        updateInvoiceItems(invoice, dto.getItems());
+
+        // 5. Recalculate Financials
+        finalizeInvoiceTotals(invoice, dto);
+
+        // 6. Save Updates
+        invoiceRepository.save(invoice);
+
+        // 7. Sync Sales Order Status
+        if (invoice.getSalesOrder() != null) {
+            updateSalesOrderStatus(invoice.getSalesOrder());
+        }
+
+        return CommonResponse.builder()
+                .status(Status.SUCCESS)
+                .id(invoice.getId().toString())
+                .message("Invoice Updated Successfully")
+                .build();
+    }
+
     @Override
     @Transactional(readOnly = true)
     public InvoiceDto getInvoiceById(Long id) throws CommonException {
@@ -160,6 +203,45 @@ public class InvoiceServiceImpl implements InvoiceService {
             // 5. Update Progress on Sales Order
             soItem.setInvoicedQty(soItem.getInvoicedQty() + itemDto.getQuantity());
             salesOrderItemRepository.save(soItem);
+        }
+    }
+
+    //Handle Add, Edit, Delete
+    private void updateInvoiceItems(Invoice invoice, List<InvoiceItemCreateDto> incomingDtos) {
+        List<InvoiceItem> existingItems = invoice.getItems();
+        List<InvoiceItem> itemsToDelete = new ArrayList<>();
+
+        // Map for easy lookup: ID -> DTO
+        // We filter out DTOs that are "New" (null ID)
+        var incomingMap = incomingDtos.stream()
+                .filter(d -> d.getId() != null)
+                .collect(Collectors.toMap(InvoiceItemCreateDto::getId, d -> d));
+
+        // A. IDENTIFY MODIFIED & DELETED ITEMS
+        for (InvoiceItem existingItem : existingItems) {
+            InvoiceItemCreateDto matchedDto = incomingMap.get(existingItem.getId());
+
+            if (matchedDto != null) {
+                //UPDATE Existing Item
+                handleItemModification(invoice, existingItem, matchedDto);
+            } else {
+                //DELETE Item (Exists in DB, not in DTO)
+                handleItemDeletion(invoice, existingItem);
+                itemsToDelete.add(existingItem);
+            }
+        }
+
+        // Remove deleted items from the parent list
+        invoice.getItems().removeAll(itemsToDelete);
+        // (Optional) Hard delete from Repo if Cascade doesn't handle it immediately
+        invoiceItemRepository.deleteAll(itemsToDelete);
+
+        // B. IDENTIFY NEW ITEMS (DTOs with null ID)
+        for (InvoiceItemCreateDto dto : incomingDtos) {
+            if (dto.getId() == null) {
+                // --- CASE 3: CREATE New Item ---
+                handleItemCreation(invoice, dto);
+            }
         }
     }
 
@@ -232,7 +314,6 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setBalance(invoice.getGrandTotal()); // Initial balance is the full amount
         invoice.setAmountPaid(BigDecimal.ZERO);
     }
-
 
     private void validateRemainingQuantity(SalesOrderItem soItem, Integer invoiceQty) {
         int remaining = soItem.getOrderedQty() - soItem.getInvoicedQty();
@@ -365,6 +446,125 @@ public class InvoiceServiceImpl implements InvoiceService {
         salesOrderRepository.save(salesOrder);
     }
 
+    private void handleItemModification(Invoice invoice, InvoiceItem currentItem, InvoiceItemCreateDto dto) {
+        // 1. Calculate Quantity Difference
+        int oldQty = currentItem.getQuantity();
+        int newQty = dto.getQuantity();
+        int deltaQty = newQty - oldQty;
+
+        // 2. Handle Stock & SO Logic based on Delta
+        if (deltaQty != 0) {
+            // Stock Logic
+            if (deltaQty > 0) {
+                // Increasing Qty -> Deduct MORE Stock (OUT)
+                updateStockHelper(invoice, currentItem.getItemId(), deltaQty, MovementType.OUT, currentItem.getBatchNumber());
+            } else {
+                // Decreasing Qty -> Return Stock (IN)
+                updateStockHelper(invoice, currentItem.getItemId(), Math.abs(deltaQty), MovementType.IN, currentItem.getBatchNumber());
+            }
+
+            // Sales Order Logic
+            if (currentItem.getSoItemId() != null) {
+                SalesOrderItem soItem = salesOrderItemRepository.findById(currentItem.getSoItemId())
+                        .orElseThrow(() -> new BadRequestException("Linked SO Item not found"));
+
+                // Validate limits if increasing
+                if (deltaQty > 0) validateRemainingQuantity(soItem, deltaQty);
+
+                soItem.setInvoicedQty(soItem.getInvoicedQty() + deltaQty);
+                salesOrderItemRepository.save(soItem);
+            }
+        }
+
+        //Update Entity Fields
+        BigDecimal price = dto.getUnitPrice() != null ? dto.getUnitPrice() : currentItem.getUnitPrice();
+        BigDecimal discount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal tax = dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO;
+
+        // Recalculate Line Total
+        BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(newQty)).subtract(discount).add(tax);
+
+        currentItem.setQuantity(newQty);
+        currentItem.setUnitPrice(price);
+        currentItem.setDiscountAmount(discount);
+        currentItem.setTaxAmount(tax);
+        currentItem.setLineTotal(lineTotal);
+        currentItem.setBatchNumber(dto.getBatchNumber()); // Important if batch changed
+    }
+
+    //HELPER Delete Item
+    private void handleItemDeletion(Invoice invoice, InvoiceItem item) {
+        // 1. Return Stock (IN)
+        updateStockHelper(invoice, item.getItemId(), item.getQuantity(), MovementType.IN, item.getBatchNumber());
+
+        // 2. Revert Sales Order Qty
+        if (item.getSoItemId() != null) {
+            SalesOrderItem soItem = salesOrderItemRepository.findById(item.getSoItemId()).orElse(null);
+            if (soItem != null) {
+                soItem.setInvoicedQty(soItem.getInvoicedQty() - item.getQuantity());
+                salesOrderItemRepository.save(soItem);
+            }
+        }
+    }
+
+    //Create New Item (Similar to Create Method)
+    private void handleItemCreation(Invoice invoice, InvoiceItemCreateDto dto) {
+        // 1. Fetch & Validate
+        SalesOrderItem soItem = null;
+        if (dto.getSoItemId() != null) {
+            soItem = salesOrderItemRepository.findById(dto.getSoItemId())
+                    .orElseThrow(() -> new BadRequestException("Invalid SO Item ID"));
+            validateRemainingQuantity(soItem, dto.getQuantity());
+
+            // Update SO
+            soItem.setInvoicedQty(soItem.getInvoicedQty() + dto.getQuantity());
+            salesOrderItemRepository.save(soItem);
+        }
+
+        Item itemMaster = itemRepository.findById(dto.getItemId())
+                .orElseThrow(() -> new BadRequestException("Item not found"));
+
+        // 2. Calculate Financials
+        BigDecimal price = dto.getUnitPrice() != null ? dto.getUnitPrice() : (soItem != null ? soItem.getUnitPrice() : itemMaster.getSellingPrice());
+        BigDecimal discount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal tax = dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO;
+        BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(dto.getQuantity())).subtract(discount).add(tax);
+
+        // 3. Create Entity
+        InvoiceItem newItem = InvoiceItem.builder()
+                .invoice(invoice)
+                .soItemId(soItem != null ? soItem.getId() : null)
+                .itemId(itemMaster.getId())
+                .itemName(itemMaster.getName())
+                .sku(itemMaster.getSku())
+                .batchNumber(dto.getBatchNumber())
+                .quantity(dto.getQuantity())
+                .unitPrice(price)
+                .discountAmount(discount)
+                .taxAmount(tax)
+                .lineTotal(lineTotal)
+                .build();
+
+        invoice.getItems().add(newItem);
+
+        // 4. Deduct Stock (OUT)
+        updateStockHelper(invoice, newItem.getItemId(), newItem.getQuantity(), MovementType.OUT, newItem.getBatchNumber());
+    }
+
+    //UTILITY: Centralized Stock Update
+    private void updateStockHelper(Invoice invoice, Long itemId, int qty, MovementType type, String batch) {
+        StockUpdateDto stockUpdate = StockUpdateDto.builder()
+                .itemId(itemId)
+                .warehouseId(invoice.getWarehouseId())
+                .quantity(qty)
+                .transactionType(type) // IN (Return) or OUT (Deduct)
+                .referenceType(ReferenceType.SALE)
+                .referenceId(invoice.getId())
+                .batchNumber(batch)
+                .build();
+        stockService.updateStock(stockUpdate);
+    }
+
     public InvoiceDto mapToDto(Invoice invoice) {
         List<InvoiceItemDto> itemDtos = invoice.getItems().stream()
                 .map(item -> InvoiceItemDto.builder()
@@ -385,6 +585,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .id(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .salesOrderId(invoice.getSalesOrder() != null ? invoice.getSalesOrder().getId() : null)
+                .customerId(invoice.getCustomer().getId())
                 .customerName(invoice.getCustomer().getName())
                 .invoiceDate(invoice.getInvoiceDate())
                 .totalDiscount(invoice.getTotalDiscount()) // Add this
