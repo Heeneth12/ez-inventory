@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .company-info h1 { color: #2d3748; margin: 0; }
+        .invoice-details { text-align: right; }
+
+        .bill-to { margin-top: 30px; }
+        .bill-to h3 { color: #718096; font-size: 14px; text-transform: uppercase; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+        th { background: #f7fafc; padding: 10px; text-align: left; font-size: 12px; color: #4a5568; }
+        td { padding: 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
+        .text-right { text-align: right; }
+
+        .totals { margin-top: 30px; float: right; width: 300px; }
+        .total-row { display: flex; justify-content: space-between; padding: 5px 0; }
+        .grand-total { font-weight: bold; font-size: 18px; border-top: 2px solid #2d3748; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="company-info">
+        <h1>YOUR COMPANY NAME</h1>
+        <p>123 Business Street, Tech City</p>
+    </div>
+    <div class="invoice-details">
+        <h2 th:text="'INVOICE #' + ${invoice.invoiceNumber}">INVOICE #001</h2>
+        <p th:text="'Date: ' + ${#dates.format(invoice.invoiceDate, 'dd-MMM-yyyy')}">Date: 01-Jan-2025</p>
+    </div>
+</div>
+
+<div class="bill-to">
+    <h3>Bill To:</h3>
+    <p><strong th:text="${invoice.customer.name}">John Doe</strong></p>
+    <p th:text="${invoice.customer.email}">john@example.com</p>
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th>ITEM</th>
+        <th class="text-right">QTY</th>
+        <th class="text-right">UNIT PRICE</th>
+        <th class="text-right">DISC</th>
+        <th class="text-right">TAX</th>
+        <th class="text-right">TOTAL</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="item : ${invoice.items}">
+        <td>
+            <span th:text="${item.itemName}">Product A</span><br />
+            <small style="color:#718096;" th:if="${item.batchNumber != null}" th:text="'Batch: ' + ${item.batchNumber}"></small>
+        </td>
+        <td class="text-right" th:text="${item.quantity}">1</td>
+        <td class="text-right" th:text="${item.unitPrice}">100.00</td>
+        <td class="text-right" th:text="${item.discountAmount}">0.00</td>
+        <td class="text-right" th:text="${item.taxAmount}">0.00</td>
+        <td class="text-right" th:text="${item.lineTotal}">100.00</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="totals">
+    <div class="total-row">
+        <span>Subtotal:</span>
+        <span th:text="${invoice.subTotal}">1000.00</span>
+    </div>
+    <div class="total-row">
+        <span>Discount:</span>
+        <span th:text="${invoice.totalDiscount}">-50.00</span>
+    </div>
+    <div class="total-row">
+        <span>Tax:</span>
+        <span th:text="${invoice.totalTax}">+180.00</span>
+    </div>
+    <div class="total-row grand-total">
+        <span>Total:</span>
+        <span th:text="${invoice.grandTotal}">1130.00</span>
+    </div>
+</div>
+
+</body>
+</html>
