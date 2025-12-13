@@ -5,10 +5,7 @@ import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceItemCreateDto;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceItemDto;
+import com.ezh.Inventory.sales.invoice.dto.*;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceItem;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceStatus;
@@ -173,6 +170,28 @@ public class InvoiceServiceImpl implements InvoiceService {
         return invoices.map(this::mapToDto);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceDto> searchInvoices(InvoiceFilter filter) throws CommonException {
+
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        InvoiceStatus status = null;
+        if (filter.getStatus() != null && !filter.getStatus().isBlank()) {
+            status = InvoiceStatus.valueOf(filter.getStatus());
+        }
+
+        List<Invoice> invoices = invoiceRepository.searchInvoices(
+                tenantId,
+                filter.getId(),
+                filter.getSalesOrderId(),
+                status,
+                filter.getCustomerId(),
+                filter.getWarehouseId()
+        );
+
+        return invoices.stream().map(this::mapToDto).toList();
+    }
 
     private void processInvoiceItems(Invoice invoice, List<InvoiceItemCreateDto> itemDtos) {
 

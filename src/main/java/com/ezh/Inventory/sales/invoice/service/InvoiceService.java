@@ -2,10 +2,12 @@ package com.ezh.Inventory.sales.invoice.service;
 
 import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
+import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 
 public interface InvoiceService {
 
@@ -13,4 +15,5 @@ public interface InvoiceService {
    CommonResponse updateInvoice(Long id, InvoiceCreateDto dto) throws CommonException;
    InvoiceDto getInvoiceById(Long invoiceId) throws CommonException;
    Page<InvoiceDto> getAllInvoices(Integer page, Integer size) throws CommonException;
+   List<InvoiceDto> searchInvoices(InvoiceFilter filter) throws CommonException;
 }

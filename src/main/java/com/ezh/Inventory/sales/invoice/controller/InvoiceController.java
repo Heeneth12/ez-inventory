@@ -3,10 +3,10 @@ package com.ezh.Inventory.sales.invoice.controller;
 
 import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
+import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
 import com.ezh.Inventory.sales.invoice.service.InvoiceService;
-import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -19,6 +19,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -54,9 +56,16 @@ public class InvoiceController {
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<Page<InvoiceDto>> getAllInvoice(@RequestParam Integer page, @RequestParam Integer size,
-                                                            @RequestBody SalesOrderFilter filter) throws CommonException {
+                                                            @RequestBody InvoiceFilter filter) throws CommonException {
         log.info("get all invoice with page : {} size {}", page, size);
         Page<InvoiceDto> response = invoiceService.getAllInvoices(page, size);
+        return ResponseResource.success(HttpStatus.OK, response, "Invoice fetched successfully");
+    }
+
+    @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<List<InvoiceDto>> searchInvoice(@RequestBody InvoiceFilter filter) throws CommonException {
+        log.info("Searching invoices with filter: {}", filter);
+        List<InvoiceDto> response = invoiceService.searchInvoices(filter);
         return ResponseResource.success(HttpStatus.OK, response, "Invoice fetched successfully");
     }
 
