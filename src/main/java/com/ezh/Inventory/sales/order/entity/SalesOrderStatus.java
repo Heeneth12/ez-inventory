@@ -5,6 +5,5 @@ public enum SalesOrderStatus {
     PARTIALLY_INVOICED, // Some items billed
     FULLY_INVOICED,     // All items billed
     CANCELLED,          // Dead order
-    DIRECT_INVOICED
 }
 

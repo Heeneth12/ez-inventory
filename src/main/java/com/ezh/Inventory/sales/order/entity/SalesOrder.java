@@ -39,6 +39,10 @@ public class SalesOrder extends CommonSerializable {
     @Column(name = "status", length = 30, nullable = false)
     private SalesOrderStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 30, nullable = false)
+    private SalesOrderSource source;
+
     @Builder.Default
     @Column(name = "sub_total")
     private BigDecimal subTotal = BigDecimal.ZERO;

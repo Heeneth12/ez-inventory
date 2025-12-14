@@ -9,10 +9,13 @@ import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
 import com.ezh.Inventory.sales.order.dto.SalesOrderItemDto;
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
+import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.DocPrefix;
+import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -52,9 +55,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .tenantId(tenantId)
                 .warehouseId(dto.getWarehouseId())
                 .customer(contact)
-                .orderNumber("SO-" + System.currentTimeMillis())
+                .orderNumber(DocumentNumberUtil.generate(DocPrefix.SO))
                 .orderDate(new Date())
                 .status(SalesOrderStatus.CREATED)
+                .source(SalesOrderSource.SALES_TEAM)
                 .remarks(dto.getRemarks())
                 .items(new ArrayList<>())
                 .build();
@@ -346,6 +350,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orderNumber(so.getOrderNumber())
                 .orderDate(so.getOrderDate())
                 .status(so.getStatus())
+                .source(so.getSource())
                 .warehouseId(so.getWarehouseId())
                 .customerId(so.getCustomer().getId())
                 .customerName(so.getCustomer().getName())

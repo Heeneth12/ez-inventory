@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.order.dto;
 
+import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import lombok.*;
 
@@ -27,6 +28,7 @@ public class SalesOrderDto {
     private BigDecimal totalTax;
     private BigDecimal totalDiscountPer;
     private SalesOrderStatus status;
+    private SalesOrderSource source;
     private BigDecimal grandTotal;
     private List<SalesOrderItemDto> items; // CHILD ITEMS
     private String remarks;

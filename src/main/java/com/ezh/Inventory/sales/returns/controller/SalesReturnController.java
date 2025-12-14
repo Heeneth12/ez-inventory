@@ -29,7 +29,7 @@ public class SalesReturnController {
         return ResponseResource.success(HttpStatus.CREATED, response, "Sales return Created Successfully");
     }
 
-    @GetMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<Page<SalesReturnDto>> getAllSalesReturn(
             @RequestParam Integer page, @RequestParam Integer size) throws CommonException {
         log.info("Fetching Sales Returns page: {}, size: {}", page, size);
