@@ -1,5 +1,9 @@
 package com.ezh.Inventory.sales.order.service;
 
+import com.ezh.Inventory.approval.dto.ApprovalCheckContext;
+import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
+import com.ezh.Inventory.approval.entity.ApprovalType;
+import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
@@ -42,6 +46,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final SalesOrderRepository salesOrderRepository;
     private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
+    private final ApprovalService approvalService;
 
     @Override
     @Transactional
@@ -69,6 +74,38 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // 3. Apply Header Level Flat Discounts/Tax & Finalize Totals
         applyHeaderTotals(salesOrder, dto);
+
+        salesOrder = salesOrderRepository.save(salesOrder);
+
+        // 5. Calculate Discount Percentage for Approval Rule
+        // Formula: (Total Discount / SubTotal) * 100
+        double discountPercentage = 0.0;
+        if (salesOrder.getSubTotal().compareTo(BigDecimal.ZERO) > 0) {
+            discountPercentage = salesOrder.getTotalDiscount()
+                    .divide(salesOrder.getSubTotal(), 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .doubleValue();
+        }
+
+        // 6. Build Approval Context
+        ApprovalCheckContext approvalCheckContext = ApprovalCheckContext.builder()
+                .type(ApprovalType.SALES_ORDER_DISCOUNT) // Check logic: "Is Discount too high?"
+                .amount(salesOrder.getGrandTotal())      // Also pass amount for High Value checks
+                .percentage(discountPercentage)          // Pass calculated %
+                .referenceId(salesOrder.getId())
+                .referenceCode(salesOrder.getOrderNumber())
+                .build();
+
+        // 7. Check Approval
+        CommonResponse<?> approvalResponse = approvalService.checkAndInitiateApproval(approvalCheckContext);
+
+        // 8. Update Sales Order Status based on Approval Result
+        if (approvalResponse.getData() == ApprovalResultStatus.APPROVAL_REQUIRED) {
+            salesOrder.setStatus(SalesOrderStatus.PENDING_APPROVAL);
+        } else {
+            // Auto-approved or no rules matched
+            salesOrder.setStatus(SalesOrderStatus.CONFIRMED);
+        }
 
         // 4. Save
         salesOrderRepository.save(salesOrder);

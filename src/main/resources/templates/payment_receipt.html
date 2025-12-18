@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        body { font-family: 'Arial', sans-serif; margin: 20px; color: #333; }
+        .header { text-align: center; border-bottom: 2px solid #444; padding-bottom: 10px; }
+        .receipt-info { margin-top: 20px; width: 100%; }
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .details-table th, .details-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .details-table th { background-color: #f2f2f2; }
+        .total-section { margin-top: 20px; text-align: right; font-weight: bold; }
+        .footer { margin-top: 50px; font-size: 10px; text-align: center; color: #777; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>PAYMENT RECEIPT</h1>
+    <p th:text="${payment.paymentNumber}">PAY-2025-0001</p>
+</div>
+
+<table class="receipt-info">
+    <tr>
+        <td><strong>Customer:</strong> <span th:text="${payment.customer.name}">Customer Name</span></td>
+        <td style="text-align: right;"><strong>Date:</strong> <span th:text="${#dates.format(payment.paymentDate, 'dd-MMM-yyyy')}"></span></td>
+    </tr>
+    <tr>
+        <td><strong>Payment Method:</strong> <span th:text="${payment.paymentMethod}">CASH</span></td>
+        <td style="text-align: right;"><strong>Reference:</strong> <span th:text="${payment.referenceNumber}">N/A</span></td>
+    </tr>
+</table>
+
+<h3>Allocation Details</h3>
+<table class="details-table">
+    <thead>
+    <tr>
+        <th>Invoice Number</th>
+        <th>Allocation Date</th>
+        <th style="text-align: right;">Amount Applied</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="alloc : ${payment.allocations}">
+        <td th:text="${alloc.invoice.invoiceNumber}">INV-001</td>
+        <td th:text="${#dates.format(alloc.allocationDate, 'dd-MMM-yyyy')}"></td>
+        <td style="text-align: right;" th:text="${alloc.allocatedAmount}">0.00</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="total-section">
+    <p>Total Paid: <span th:text="${payment.amount}">0.00</span></p>
+    <p>Total Allocated: <span th:text="${payment.allocatedAmount}">0.00</span></p>
+    <p>Remaining Credit (Unallocated): <span th:text="${payment.unallocatedAmount}">0.00</span></p>
+</div>
+
+<div class="footer">
+    <p>Thank you for your business!</p>
+</div>
+
+</body>
+</html>

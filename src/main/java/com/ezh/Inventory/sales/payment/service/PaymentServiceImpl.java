@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.payment.service;
 
+import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceMiniDto;
@@ -171,7 +172,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentDto getAllPayments(Long PaymentId) throws CommonException {
+    public PaymentDto getPayment(Long PaymentId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Payment payment = paymentRepository.findByIdAndTenantId(PaymentId,tenantId)
@@ -211,6 +212,71 @@ public class PaymentServiceImpl implements PaymentService {
                 .builder()
                 .status(Status.SUCCESS)
                 .message("Successfully created credit note")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CommonResponse<?> applyWalletToInvoice(WalletPayDto walletPayDto) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Payment payment = paymentRepository.findByIdAndTenantId(walletPayDto.getPaymentId(), tenantId)
+                .orElseThrow(() -> new CommonException("Payment/Credit not found", HttpStatus.NOT_FOUND));
+
+        // Validate wallet has enough funds
+        if (payment.getUnallocatedAmount().compareTo(walletPayDto.getAmount()) < 0) {
+            throw new BadRequestException("Insufficient wallet balance in this payment record");
+        }
+
+        // Reuse your existing internal processAllocations logic
+        List<PaymentAllocationDto> allocations = List.of(new PaymentAllocationDto(walletPayDto.getInvoiceId(), walletPayDto.getAmount()));
+        processAllocations(payment, allocations, tenantId);
+
+        return CommonResponse.builder()
+                .status(Status.SUCCESS)
+                .message("Credit applied to invoice successfully")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CommonResponse<?> refundUnallocatedAmount(Long paymentId, BigDecimal refundAmount) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Payment payment = paymentRepository.findByIdAndTenantId(paymentId, tenantId)
+                .orElseThrow(() -> new CommonException("Payment record not found", HttpStatus.NOT_FOUND));
+
+        if (payment.getUnallocatedAmount().compareTo(refundAmount) < 0) {
+            throw new BadRequestException("Refund amount exceeds available unallocated balance");
+        }
+
+        // Reduce unallocated amount and add a remark
+        payment.setUnallocatedAmount(payment.getUnallocatedAmount().subtract(refundAmount));
+        payment.setRemarks(payment.getRemarks() + " | Refunded: " + refundAmount);
+
+        paymentRepository.save(payment);
+
+        return CommonResponse.builder()
+                .status(Status.SUCCESS)
+                .message("Refund processed successfully")
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerFinancialSummaryDto getCustomerFinancialSummary(Long customerId)  throws CommonException{
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        // 1. Calculate Total Due (Sum of all unpaid/partial invoice balances)
+        BigDecimal totalDue = invoiceRepository.getTotalBalanceByCustomer(customerId, tenantId);
+
+        // 2. Calculate Wallet Balance (Sum of all unallocated payment amounts)
+        BigDecimal walletBalance = paymentRepository.getTotalUnallocatedByCustomer(customerId, tenantId);
+
+        return CustomerFinancialSummaryDto.builder()
+                .customerId(customerId)
+                .totalOutstandingAmount(totalDue != null ? totalDue : BigDecimal.ZERO)
+                .walletBalance(walletBalance != null ? walletBalance : BigDecimal.ZERO)
                 .build();
     }
 
@@ -304,6 +370,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .customerId(payment.getCustomer().getId())
                 .customerName(payment.getCustomer().getName())
                 .paymentDate(payment.getPaymentDate())
+                .contactMini(new ContactMiniDto(payment.getCustomer()))
                 .amount(payment.getAmount())
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())

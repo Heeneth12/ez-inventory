@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.delivery.service;
 
+import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.sales.delivery.dto.DeliveryDto;
 import com.ezh.Inventory.sales.delivery.dto.DeliveryFilterDto;
 import com.ezh.Inventory.sales.delivery.entity.Delivery;
@@ -311,6 +312,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .type(delivery.getType())
                 .status(delivery.getStatus())
                 .invoice(mapToDto(delivery.getInvoice()))
+                .contactMini(new ContactMiniDto(delivery.getCustomer()))
                 .customerId(delivery.getCustomer() != null ? delivery.getCustomer().getId() : null)
                 .customerName(delivery.getCustomer() != null ? delivery.getCustomer().getName() : null)
                 .scheduledDate(delivery.getScheduledDate())

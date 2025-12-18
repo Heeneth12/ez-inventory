@@ -1,21 +1,22 @@
 package com.ezh.Inventory.sales.payment.controller;
 
 
-import com.ezh.Inventory.sales.payment.dto.InvoicePaymentHistoryDto;
-import com.ezh.Inventory.sales.payment.dto.InvoicePaymentSummaryDto;
-import com.ezh.Inventory.sales.payment.dto.PaymentCreateDto;
-import com.ezh.Inventory.sales.payment.dto.PaymentDto;
+import com.ezh.Inventory.sales.payment.dto.*;
 import com.ezh.Inventory.sales.payment.service.PaymentService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
+import com.ezh.Inventory.utils.pdfsvc.PdfGeneratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -25,6 +26,7 @@ import java.util.List;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PdfGeneratorService pdfGeneratorService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<CommonResponse<?>> recordPayment(@RequestBody PaymentCreateDto paymentCreateDto) throws CommonException {
@@ -58,7 +60,46 @@ public class PaymentController {
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<PaymentDto> getPaymentDetailById(@RequestParam Long paymentId) throws CommonException {
         log.info("Entering getPaymentDetailById with ID : {}", paymentId);
-        PaymentDto response = paymentService.getAllPayments(paymentId);
+        PaymentDto response = paymentService.getPayment(paymentId);
         return ResponseResource.success(HttpStatus.CREATED, response, "Payment recorded successfully");
+    }
+
+    @GetMapping(value = "/summary/customer/{customerId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CustomerFinancialSummaryDto> getCustomerSummary(@PathVariable Long customerId) throws CommonException {
+        log.info("Fetching financial summary for customer: {}", customerId);
+        CustomerFinancialSummaryDto response = paymentService.getCustomerFinancialSummary(customerId);
+        return ResponseResource.success(HttpStatus.OK, response, "Customer summary fetched successfully");
+    }
+
+    @PostMapping(value = "/wallet/refund/{paymentId}")
+    public ResponseResource<CommonResponse<?>> refundWalletAmount(@PathVariable Long paymentId,
+                                                                  @RequestParam BigDecimal amount) throws CommonException {
+        log.info("Refunding amount {} from paymentId {}", amount, paymentId);
+        CommonResponse<?> response = paymentService.refundUnallocatedAmount(paymentId, amount);
+        return ResponseResource.success(HttpStatus.OK, response, "Refund processed successfully");
+    }
+
+    @PostMapping(value = "/wallet/apply", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> applyWalletToInvoice(@RequestBody WalletPayDto walletPayDto) throws CommonException {
+        log.info("Applying wallet funds: {}", walletPayDto);
+        CommonResponse<?> response = paymentService.applyWalletToInvoice(walletPayDto);
+        return ResponseResource.success(HttpStatus.OK, response, "Wallet balance applied successfully");
+    }
+
+    /**
+     * Generate and Download Payment PDF
+     */
+    @GetMapping(value = "/{paymentId}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> downloadPaymentPdf(@PathVariable Long paymentId) throws Exception {
+        log.info("Generating PDF for payment: {}", paymentId);
+        // Assuming you call your service which calls PdfGeneratorService
+        PaymentDto paymentDto = paymentService.getPayment(paymentId);
+        byte[] pdfContent = pdfGeneratorService.generatePaymentPdf(paymentDto);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "Receipt-" + paymentId + ".pdf");
+
+        return new ResponseEntity<>(pdfContent, headers, HttpStatus.OK);
     }
 }

@@ -1,10 +1,7 @@
 package com.ezh.Inventory.sales.payment.service;
 
 import com.ezh.Inventory.contacts.entiry.Contact;
-import com.ezh.Inventory.sales.payment.dto.InvoicePaymentHistoryDto;
-import com.ezh.Inventory.sales.payment.dto.InvoicePaymentSummaryDto;
-import com.ezh.Inventory.sales.payment.dto.PaymentCreateDto;
-import com.ezh.Inventory.sales.payment.dto.PaymentDto;
+import com.ezh.Inventory.sales.payment.dto.*;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
 import org.springframework.data.domain.Page;
@@ -24,5 +21,11 @@ public interface PaymentService {
 
     CommonResponse createCreditNote(Contact customer, BigDecimal amount, String returnRefNumber) throws CommonException;
 
-    PaymentDto getAllPayments(Long PaymentId) throws CommonException;
+    PaymentDto getPayment(Long PaymentId) throws CommonException;
+
+    CommonResponse<?> applyWalletToInvoice(WalletPayDto walletPayDto) throws CommonException;
+
+    CommonResponse<?> refundUnallocatedAmount(Long paymentId, BigDecimal refundAmount) throws CommonException;
+
+    CustomerFinancialSummaryDto getCustomerFinancialSummary(Long customerId) throws CommonException;
 }

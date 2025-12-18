@@ -1,88 +1,208 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8"/>
+    <title>Invoice</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-        .company-info h1 { color: #2d3748; margin: 0; }
-        .invoice-details { text-align: right; }
+        /*<![CDATA[*/
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333333;
+            font-size: 14px;
+            margin: 0;
+            padding: 40px;
+            background-color: #ffffff;
+        }
 
-        .bill-to { margin-top: 30px; }
-        .bill-to h3 { color: #718096; font-size: 14px; text-transform: uppercase; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-        th { background: #f7fafc; padding: 10px; text-align: left; font-size: 12px; color: #4a5568; }
-        td { padding: 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
         .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .text-light { color: #888888; }
+        .font-bold { font-weight: bold; }
 
-        .totals { margin-top: 30px; float: right; width: 300px; }
-        .total-row { display: flex; justify-content: space-between; padding: 5px 0; }
-        .grand-total { font-weight: bold; font-size: 18px; border-top: 2px solid #2d3748; padding-top: 10px; }
+        /* Header */
+        .header-table { width: 100%; border-bottom: 1px solid #eeeeee; padding-bottom: 30px; margin-bottom: 30px; }
+        .title { font-size: 36px; font-weight: 700; margin-bottom: 5px; color: #111; }
+        .invoice-id { font-size: 14px; color: #666; }
+
+        .logo-box {
+            width: 50px;
+            height: 50px;
+            background-color: #3b5aff;
+            border-radius: 12px;
+            color: #fff;
+            text-align: center;
+            line-height: 50px;
+            font-size: 24px;
+            font-weight: bold;
+            float: right;
+        }
+
+        /* Meta Data */
+        .meta-table { width: 100%; margin-bottom: 40px; }
+        .meta-label { font-size: 11px; color: #999; margin-bottom: 5px; display: block; }
+        .meta-value { font-size: 14px; font-weight: 600; color: #333; }
+
+        /* Addresses */
+        .address-table { width: 100%; margin-bottom: 50px; }
+        .address-col { width: 50%; vertical-align: top; padding-right: 20px; }
+        .address-title { font-size: 12px; color: #999; margin-bottom: 8px; }
+        .company-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #111; }
+        .address-lines { font-size: 13px; color: #555; line-height: 1.6; }
+
+        /* Items */
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        .items-table th {
+            background-color: #f7f9fc;
+            color: #555;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 15px;
+            border-radius: 4px 4px 0 0;
+        }
+        .items-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+        .item-title { font-size: 14px; font-weight: 600; color: #333; display: block; margin-bottom: 4px; }
+        .item-desc { font-size: 12px; color: #888; line-height: 1.4; }
+
+        /* Footer */
+        .footer-table { width: 100%; }
+        .notes-col { width: 60%; vertical-align: top; padding-right: 40px; }
+        .totals-col { width: 40%; vertical-align: top; }
+
+        .payment-info h4 { font-size: 13px; margin: 0 0 5px 0; color: #333; }
+        .payment-info p { font-size: 12px; color: #777; margin: 0; line-height: 1.5; }
+        /*]]>*/
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="company-info">
-        <h1>YOUR COMPANY NAME</h1>
-        <p>123 Business Street, Tech City</p>
-    </div>
-    <div class="invoice-details">
-        <h2 th:text="'INVOICE #' + ${invoice.invoiceNumber}">INVOICE #001</h2>
-        <p th:text="'Date: ' + ${#dates.format(invoice.invoiceDate, 'dd-MMM-yyyy')}">Date: 01-Jan-2025</p>
-    </div>
-</div>
+<table class="header-table">
+    <tr>
+        <td style="vertical-align: top;">
+            <div class="title">Invoice</div>
+            <div class="invoice-id" th:text="${invoice.invoiceNumber}">INC 0000-001</div>
+        </td>
+        <td style="vertical-align: top;" class="text-right">
+            <div class="logo-box">E</div>
+        </td>
+    </tr>
+</table>
 
-<div class="bill-to">
-    <h3>Bill To:</h3>
-    <p><strong th:text="${invoice.customer.name}">John Doe</strong></p>
-    <p th:text="${invoice.customer.email}">john@example.com</p>
-</div>
+<table class="meta-table">
+    <tr>
+        <td width="33%">
+            <span class="meta-label">PO Number</span>
+            <span class="meta-value" th:text="${invoice.salesOrder != null ? invoice.salesOrder.id : '-'}">123456XXXX</span>
+        </td>
+        <td width="33%" class="text-center">
+            <span class="meta-label">Invoice Date</span>
+            <span class="meta-value" th:text="${#dates.format(invoice.invoiceDate, 'MMM dd, yyyy')}">May 12, 2025</span>
+        </td>
+        <td width="33%" class="text-right">
+            <span class="meta-label">Due Date</span>
+            <span class="meta-value" th:text="${#dates.format(invoice.invoiceDate, 'MMM dd, yyyy')}">July 09, 2025</span>
+        </td>
+    </tr>
+</table>
 
-<table>
+<table class="address-table">
+    <tr>
+        <td class="address-col">
+            <div class="address-title">From</div>
+            <div class="company-name">EZH Company</div>
+            <div class="address-lines">
+                accounts@ezhcompany.com<br/>
+                +1 (555) 123-4567<br/><br/>
+                101 Tech Park, Silicon Valley<br/>
+                Floor 4, San Francisco, CA 94105<br/>
+                Tax ID: EZH-88776655
+            </div>
+        </td>
+        <td class="address-col">
+            <div class="address-title">To</div>
+            <div class="company-name" th:text="${invoice.customer.name}">John Deo</div>
+            <div class="address-lines">
+                <span th:text="${invoice.customer.email}">john@example.com</span><br/>
+                <span th:text="${invoice.customer.phone}">+1(852)96X XXX</span><br/><br/>
+                <span th:if="${invoice.customer.addresses != null and !invoice.customer.addresses.isEmpty()}">
+                        <span th:text="${invoice.customer.addresses[0].addressLine1}">123 Main Street</span><br/>
+                        <span th:text="${invoice.customer.addresses[0].city}">City</span>,
+                        <span th:text="${invoice.customer.addresses[0].state}">State</span>
+                    </span>
+                <span th:unless="${invoice.customer.addresses != null and !invoice.customer.addresses.isEmpty()}">
+                        No Address Provided
+                    </span>
+                <br/>Tax ID: 98765XXXXX
+            </div>
+        </td>
+    </tr>
+</table>
+
+<table class="items-table">
     <thead>
     <tr>
-        <th>ITEM</th>
-        <th class="text-right">QTY</th>
-        <th class="text-right">UNIT PRICE</th>
-        <th class="text-right">DISC</th>
-        <th class="text-right">TAX</th>
-        <th class="text-right">TOTAL</th>
+        <th style="width: 50%;">Item</th>
+        <th style="width: 10%;" class="text-right">Qty</th>
+        <th style="width: 20%;" class="text-right">Price</th>
+        <th style="width: 20%;" class="text-right">Amount</th>
     </tr>
     </thead>
     <tbody>
     <tr th:each="item : ${invoice.items}">
         <td>
-            <span th:text="${item.itemName}">Product A</span><br />
-            <small style="color:#718096;" th:if="${item.batchNumber != null}" th:text="'Batch: ' + ${item.batchNumber}"></small>
+            <span class="item-title" th:text="${item.itemName}">Product</span>
+            <span class="item-desc" th:if="${item.sku != null}" th:text="'SKU: ' + ${item.sku}">SKU: 123</span>
         </td>
         <td class="text-right" th:text="${item.quantity}">1</td>
-        <td class="text-right" th:text="${item.unitPrice}">100.00</td>
-        <td class="text-right" th:text="${item.discountAmount}">0.00</td>
-        <td class="text-right" th:text="${item.taxAmount}">0.00</td>
-        <td class="text-right" th:text="${item.lineTotal}">100.00</td>
+        <td class="text-right" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
+        <td class="text-right font-bold" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
     </tr>
     </tbody>
 </table>
 
-<div class="totals">
-    <div class="total-row">
-        <span>Subtotal:</span>
-        <span th:text="${invoice.subTotal}">1000.00</span>
-    </div>
-    <div class="total-row">
-        <span>Discount:</span>
-        <span th:text="${invoice.totalDiscount}">-50.00</span>
-    </div>
-    <div class="total-row">
-        <span>Tax:</span>
-        <span th:text="${invoice.totalTax}">+180.00</span>
-    </div>
-    <div class="total-row grand-total">
-        <span>Total:</span>
-        <span th:text="${invoice.grandTotal}">1130.00</span>
-    </div>
-</div>
+<table class="footer-table">
+    <tr>
+        <td class="notes-col">
+            <div class="payment-info" style="margin-bottom: 20px;">
+                <h4>Payment Method</h4>
+                <p>Bank Transfer<br/>Account Name: EZH Company<br/>Account Number: 99188949XXXXXX</p>
+            </div>
+            <div class="payment-info">
+                <h4>Memo</h4>
+                <p th:text="${invoice.remarks != null ? invoice.remarks : 'Thank you for your business!'}">
+                    Default memo
+                </p>
+            </div>
+        </td>
+        <td class="totals-col">
+            <table style="width: 100%;">
+                <tr>
+                    <td class="text-light" style="padding: 5px 0;">Subtotal</td>
+                    <td class="text-right" th:text="${#numbers.formatDecimal(invoice.subTotal, 1, 'COMMA', 2, 'POINT')}">$ 100.00</td>
+                </tr>
+                <tr>
+                    <td class="text-light" style="padding: 5px 0;">Tax</td>
+                    <td class="text-right" th:text="'+ ' + ${#numbers.formatDecimal(invoice.totalTax, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
+                </tr>
+                <tr>
+                    <td class="text-light" style="padding: 5px 0;">Discount</td>
+                    <td class="text-right" th:text="'- ' + ${#numbers.formatDecimal(invoice.totalDiscount, 1, 'COMMA', 2, 'POINT')}">$ 0.00</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="border-top: 2px solid #333; padding-top: 15px; margin-top: 10px;"></td>
+                </tr>
+                <tr>
+                    <td class="font-bold" style="font-size: 16px;">Total</td>
+                    <td class="text-right font-bold" style="font-size: 20px;" th:text="${#numbers.formatDecimal(invoice.grandTotal, 1, 'COMMA', 2, 'POINT')}">$ 110.00</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 
 </body>
 </html>

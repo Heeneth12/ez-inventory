@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     Optional<Invoice> findByIdAndTenantId(Long id, Long tenantId);
 
     Page<Invoice> findByTenantId(Long tenantId, Pageable pageable);
+
+    @Query("SELECT SUM(i.balance) FROM Invoice i WHERE i.customer.id = :customerId AND i.tenantId = :tenantId")
+    BigDecimal getTotalBalanceByCustomer(@Param("customerId") Long customerId, @Param("tenantId") Long tenantId);
 
     @Query("""
                 SELECT i FROM Invoice i

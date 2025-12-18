@@ -1,13 +1,11 @@
 package com.ezh.Inventory.sales.delivery.dto;
 
 import com.ezh.Inventory.contacts.dto.ContactDto;
-import com.ezh.Inventory.contacts.entiry.Contact;
+import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.employee.dto.EmployeeDto;
-import com.ezh.Inventory.employee.entity.Employee;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentType;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
-import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import lombok.*;
 
 import java.util.Date;
@@ -22,6 +20,7 @@ public class DeliveryDto {
     private Long tenantId;
     private String deliveryNumber;  // DEV-2025-001
     private InvoiceDto invoice;
+    private ContactMiniDto contactMini;
     private ContactDto customer;
     private Long customerId;
     private String customerName;
