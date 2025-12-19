@@ -167,10 +167,14 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<InvoiceDto> getAllInvoices(Integer page, Integer size) {
+    public Page<InvoiceDto> getAllInvoices(InvoiceFilter filter, Integer page, Integer size) {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size);
-        Page<Invoice> invoices = invoiceRepository.findByTenantId(tenantId, pageable);
+
+        Page<Invoice> invoices = invoiceRepository.getAllInvoices(
+                tenantId, filter.getId(), filter.getSalesOrderId(), filter.getStatus(),
+                filter.getCustomerId(), filter.getWarehouseId(), pageable);
+
         return invoices.map(this::mapToDto);
     }
 
@@ -198,9 +202,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         InvoiceStatus status = null;
-        if (filter.getStatus() != null && !filter.getStatus().isBlank()) {
-            status = InvoiceStatus.valueOf(filter.getStatus());
-        }
+        status = InvoiceStatus.valueOf(String.valueOf(filter.getStatus()));
 
         List<Invoice> invoices = invoiceRepository.searchInvoices(
                 tenantId,

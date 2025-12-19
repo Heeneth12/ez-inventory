@@ -42,4 +42,23 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("customerId") Long customerId,
             @Param("warehouseId") Long warehouseId
     );
+
+    @Query("""
+                SELECT i FROM Invoice i
+                WHERE i.tenantId = :tenantId
+                  AND (:id IS NULL OR i.id = :id)
+                  AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
+                  AND (:status IS NULL OR i.status = :status)
+                  AND (:customerId IS NULL OR i.customer.id = :customerId)
+                  AND (:warehouseId IS NULL OR i.warehouseId = :warehouseId)
+            """)
+    Page<Invoice> getAllInvoices(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("salesOrderId") Long salesOrderId,
+            @Param("status") InvoiceStatus status,
+            @Param("customerId") Long customerId,
+            @Param("warehouseId") Long warehouseId,
+            Pageable pageable
+    );
 }

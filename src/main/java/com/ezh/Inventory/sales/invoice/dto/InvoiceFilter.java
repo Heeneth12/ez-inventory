@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.invoice.dto;
 
+import com.ezh.Inventory.sales.invoice.entity.InvoiceStatus;
 import lombok.*;
 
 @Getter
@@ -10,7 +11,7 @@ import lombok.*;
 public class InvoiceFilter {
     private Long id;
     private Long salesOrderId;
-    private String status;
+    private InvoiceStatus status;
     private Long customerId;
     private Long warehouseId;
 }

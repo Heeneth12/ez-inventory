@@ -58,7 +58,7 @@ public class InvoiceController {
     public ResponseResource<Page<InvoiceDto>> getAllInvoice(@RequestParam Integer page, @RequestParam Integer size,
                                                             @RequestBody InvoiceFilter filter) throws CommonException {
         log.info("get all invoice with page : {} size {}", page, size);
-        Page<InvoiceDto> response = invoiceService.getAllInvoices(page, size);
+        Page<InvoiceDto> response = invoiceService.getAllInvoices(filter, page, size);
         return ResponseResource.success(HttpStatus.OK, response, "Invoice fetched successfully");
     }
 
