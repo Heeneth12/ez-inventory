@@ -17,7 +17,7 @@ public interface PaymentService {
 
     InvoicePaymentSummaryDto getInvoicePaymentSummary(Long invoiceId) throws CommonException;
 
-    Page<PaymentDto> getAllPayments(Integer page, Integer size) throws CommonException;
+    Page<PaymentDto> getAllPayments(PaymentFilter filter, Integer page, Integer size) throws CommonException;
 
     CommonResponse createCreditNote(Contact customer, BigDecimal amount, String returnRefNumber) throws CommonException;
 

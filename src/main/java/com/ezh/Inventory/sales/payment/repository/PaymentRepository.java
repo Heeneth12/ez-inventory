@@ -28,4 +28,26 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "WHERE p.customer.id = :customerId AND " +
             "p.tenantId = :tenantId AND p.unallocatedAmount > 0")
     BigDecimal findTotalAvailableCredit(@Param("customerId") Long customerId, @Param("tenantId") Long tenantId);
+
+    @Query(
+            value = """
+                    SELECT * FROM payment p
+                    WHERE p.tenant_id = :tenantId
+                      AND (:id IS NULL OR p.id = :id)
+                      AND (:customerId IS NULL OR p.customer_id = :customerId)
+                      AND (:status IS NULL OR p.status = :status)
+                      AND (:paymentMethod IS NULL OR p.payment_method = :paymentMethod)
+                      AND (:paymentNumber IS NULL OR p.payment_number LIKE CONCAT('%', :paymentNumber, '%'))
+                    """,
+            nativeQuery = true
+    )
+    Page<Payment> getAllPayments(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("customerId") Long customerId,
+            @Param("status") String status,
+            @Param("paymentMethod") String paymentMethod,
+            @Param("paymentNumber") String paymentNumber,
+            Pageable pageable
+    );
 }

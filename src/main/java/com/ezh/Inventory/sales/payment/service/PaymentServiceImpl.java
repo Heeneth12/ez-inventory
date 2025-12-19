@@ -159,14 +159,17 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PaymentDto> getAllPayments(Integer page, Integer size) throws CommonException {
+    public Page<PaymentDto> getAllPayments(PaymentFilter filter, Integer page, Integer size) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<Payment> payments = paymentRepository.findByTenantId(tenantId, pageable);
+        Page<Payment> payments = paymentRepository.getAllPayments(tenantId,
+                filter.getId(), filter.getCustomerId(), filter.getStatus(),
+                filter.getPaymentMethod(), filter.getPaymentNumber(),
+                pageable);
 
-        return payments.map( p -> mapToDto(p, false));
+        return payments.map(p -> mapToDto(p, false));
     }
 
 

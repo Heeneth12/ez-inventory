@@ -36,10 +36,10 @@ public class PaymentController {
     }
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<PaymentDto>> getAllPayments(@RequestParam(defaultValue = "0") Integer page,
+    public ResponseResource<Page<PaymentDto>> getAllPayments(@RequestBody PaymentFilter filter,  @RequestParam(defaultValue = "0") Integer page,
                                                              @RequestParam(defaultValue = "10") Integer size) throws CommonException {
         log.info("Fetching payments page: {}, size: {}", page, size);
-        Page<PaymentDto> response = paymentService.getAllPayments(page, size);
+        Page<PaymentDto> response = paymentService.getAllPayments(filter, page, size);
         return ResponseResource.success(HttpStatus.OK, response, "Payments fetched successfully");
     }
 
