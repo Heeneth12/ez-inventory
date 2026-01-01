@@ -7,14 +7,13 @@ import com.ezh.Inventory.approval.dto.ApprovalRequestDto;
 import com.ezh.Inventory.approval.entity.*;
 import com.ezh.Inventory.approval.repository.ApprovalConfigRepository;
 import com.ezh.Inventory.approval.repository.ApprovalRequestRepository;
-import com.ezh.Inventory.sales.order.entity.SalesOrder;
-import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
-import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.events.ApprovalDecisionEvent;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,13 +31,8 @@ public class ApprovalService {
 
     private final ApprovalConfigRepository approvalConfigRepository;
     private final ApprovalRequestRepository approvalRequestRepository;
-    private final SalesOrderRepository salesOrderRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * MAIN LOGIC: Checks if the action (Invoice/PO) violates any config rules.
-     *
-     * @return ApprovalRequest if approval is needed (PENDING), null if Auto-Approved.
-     */
     @Transactional
     public CommonResponse<?> checkAndInitiateApproval(ApprovalCheckContext context) {
 
@@ -118,7 +112,7 @@ public class ApprovalService {
      * ACTION LOGIC: Admin Approves or Rejects a request.
      */
     @Transactional
-    public CommonResponse<?> processDecision(ApprovalActionDto actionDto) {
+    public CommonResponse<?> processDecision(ApprovalActionDto actionDto) throws CommonException{
 
         // 1. Fetch the Request
         ApprovalRequest request = approvalRequestRepository.findById(actionDto.getRequestId())
@@ -130,12 +124,15 @@ public class ApprovalService {
         request.setActionRemarks(actionDto.getRemarks());
         approvalRequestRepository.save(request);
 
-        // 3. Update the Source Entity (Callback Logic)
-        if (actionDto.getStatus() == ApprovalStatus.APPROVED) {
-            handleApprovalSuccess(request);
-        } else if (actionDto.getStatus() == ApprovalStatus.REJECTED) {
-            handleApprovalRejection(request);
-        }
+        // 2. Publish the Event instead of calling services directly
+        ApprovalDecisionEvent event = new ApprovalDecisionEvent(
+                this,
+                request.getApprovalType(),
+                request.getReferenceId(),
+                actionDto.getStatus()
+        );
+
+        eventPublisher.publishEvent(event);
 
         return CommonResponse.builder()
                 .message("Request processed successfully")
@@ -265,52 +262,6 @@ public class ApprovalService {
                 .build();
 
         return approvalRequestRepository.save(request);
-    }
-
-
-    /**
-     * Logic for when an Admin clicks "APPROVE"
-     */
-    private void handleApprovalSuccess(ApprovalRequest request) {
-        switch (request.getApprovalType()) {
-
-            case SALES_ORDER_DISCOUNT:
-                updateSalesOrderStatus(request.getReferenceId(), SalesOrderStatus.CONFIRMED);
-                break;
-
-            case PO_APPROVAL:
-                // updatePurchaseOrderStatus(request.getReferenceId(), POStatus.CONFIRMED);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    /**
-     * Logic for when an Admin clicks "REJECT"
-     */
-    private void handleApprovalRejection(ApprovalRequest request) {
-        switch (request.getApprovalType()) {
-
-            case SALES_ORDER_DISCOUNT:
-                // If rejected, we might mark it as REJECTED or revert to DRAFT so they can fix it
-                updateSalesOrderStatus(request.getReferenceId(), SalesOrderStatus.REJECTED);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    /**
-     * Helper to update Sales Order
-     */
-    private void updateSalesOrderStatus(Long salesOrderId, SalesOrderStatus newStatus) {
-        SalesOrder so = salesOrderRepository.findById(salesOrderId)
-                .orElseThrow(() -> new CommonException("Linked Sales Order not found", HttpStatus.NOT_FOUND));
-        so.setStatus(newStatus);
-        salesOrderRepository.save(so);
     }
 
 

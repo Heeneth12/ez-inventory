@@ -222,22 +222,42 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public CommonResponse<?> applyWalletToInvoice(WalletPayDto walletPayDto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        BigDecimal amountToApply = walletPayDto.getAmount();
 
-        Payment payment = paymentRepository.findByIdAndTenantId(walletPayDto.getPaymentId(), tenantId)
-                .orElseThrow(() -> new CommonException("Payment/Credit not found", HttpStatus.NOT_FOUND));
+        // 1. Fetch all available credits for this customer (Oldest First - FIFO)
+        List<Payment> availableCredits = paymentRepository
+                .findByCustomerIdAndTenantIdAndUnallocatedAmountGreaterThanOrderByPaymentDateAsc(
+                        walletPayDto.getCustomerId(), tenantId, BigDecimal.ZERO);
 
-        // Validate wallet has enough funds
-        if (payment.getUnallocatedAmount().compareTo(walletPayDto.getAmount()) < 0) {
-            throw new BadRequestException("Insufficient wallet balance in this payment record");
+        // 2. Validate total available balance across all records
+        BigDecimal totalAvailable = availableCredits.stream()
+                .map(Payment::getUnallocatedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalAvailable.compareTo(amountToApply) < 0) {
+            throw new BadRequestException("Insufficient total wallet balance. Available: " + totalAvailable);
         }
 
-        // Reuse your existing internal processAllocations logic
-        List<PaymentAllocationDto> allocations = List.of(new PaymentAllocationDto(walletPayDto.getInvoiceId(), walletPayDto.getAmount()));
-        processAllocations(payment, allocations, tenantId);
+        // 3. Consume credits across multiple payment records if necessary
+        for (Payment payment : availableCredits) {
+            if (amountToApply.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal canTake = payment.getUnallocatedAmount().min(amountToApply);
+
+            // Prepare allocation for this specific payment record
+            List<PaymentAllocationDto> allocations = List.of(
+                    new PaymentAllocationDto(walletPayDto.getInvoiceId(), canTake)
+            );
+
+            // Use your existing logic to update balances and create PaymentAllocation entities
+            processAllocations(payment, allocations, tenantId);
+
+            amountToApply = amountToApply.subtract(canTake);
+        }
 
         return CommonResponse.builder()
                 .status(Status.SUCCESS)
-                .message("Credit applied to invoice successfully")
+                .message("Wallet balance applied to invoice successfully using FIFO")
                 .build();
     }
 
@@ -280,6 +300,39 @@ public class PaymentServiceImpl implements PaymentService {
                 .customerId(customerId)
                 .totalOutstandingAmount(totalDue != null ? totalDue : BigDecimal.ZERO)
                 .walletBalance(walletBalance != null ? walletBalance : BigDecimal.ZERO)
+                .build();
+    }
+
+
+    @Override
+    @Transactional
+    public CommonResponse<?> addMoneyToWallet(WalletAddDto dto) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Contact customer = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
+                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.NOT_FOUND));
+
+        // Create Payment as an "Advance"
+        Payment payment = Payment.builder()
+                .tenantId(tenantId)
+                .paymentNumber("ADV-" + System.currentTimeMillis())
+                .customer(customer)
+                .paymentDate(new Date())
+                .amount(dto.getAmount())
+                .status(PaymentStatus.COMPLETED)
+                .paymentMethod(dto.getPaymentMethod())
+                .referenceNumber(dto.getReferenceNumber())
+                .remarks(dto.getRemarks())
+                .allocatedAmount(BigDecimal.ZERO)
+                .unallocatedAmount(dto.getAmount()) // All money goes to wallet
+                .build();
+
+        paymentRepository.save(payment);
+
+        return CommonResponse.builder()
+                .status(Status.SUCCESS)
+                .id(payment.getId().toString())
+                .message("Advance Payment Added to Wallet")
                 .build();
     }
 

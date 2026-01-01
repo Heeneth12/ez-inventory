@@ -19,6 +19,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByIdAndTenantId(Long id, Long tenantId);
 
+    List<Payment> findByCustomerIdAndTenantIdAndUnallocatedAmountGreaterThanOrderByPaymentDateAsc(
+            Long customerId, Long tenantId, BigDecimal minAmount);
+
     @Query("SELECT SUM(p.unallocatedAmount) FROM Payment p WHERE p.customer.id = :customerId AND p.tenantId = :tenantId")
     BigDecimal getTotalUnallocatedByCustomer(@Param("customerId") Long customerId, @Param("tenantId") Long tenantId);
 

@@ -2,6 +2,7 @@ package com.ezh.Inventory.sales.order.service;
 
 import com.ezh.Inventory.approval.dto.ApprovalCheckContext;
 import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
+import com.ezh.Inventory.approval.entity.ApprovalStatus;
 import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.contacts.dto.ContactMiniDto;
@@ -21,10 +22,12 @@ import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.events.ApprovalDecisionEvent;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -219,6 +222,27 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrderRepository.save(so);
 
         return CommonResponse.builder().message("Order Cancelled").build();
+    }
+
+
+    @EventListener
+    @Transactional
+    public void onApprovalDecision(ApprovalDecisionEvent event) throws CommonException {
+
+        if (event.getType() != ApprovalType.SALES_ORDER_DISCOUNT) {
+            return;
+        }
+
+        SalesOrder so = salesOrderRepository.findById(event.getReferenceId())
+                .orElseThrow(() -> new CommonException("Linked Sales Order not found", HttpStatus.NOT_FOUND));
+
+        if (event.getStatus() == ApprovalStatus.APPROVED) {
+            so.setStatus(SalesOrderStatus.CONFIRMED);
+        } else {
+            so.setStatus(SalesOrderStatus.REJECTED);
+        }
+
+        salesOrderRepository.save(so);
     }
 
     /**

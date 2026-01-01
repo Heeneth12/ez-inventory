@@ -52,6 +52,10 @@ public class Invoice extends CommonSerializable {
     @Column(name = "payment_status", nullable = false, length = 20)
     private InvoicePaymentStatus paymentStatus;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "invoice_type", nullable = false, length = 30)
+    private InvoiceType invoiceType;
+
     @Column(name = "sub_total", nullable = false)
     private BigDecimal subTotal; // qty × price (sum of all line totals before tax)
 

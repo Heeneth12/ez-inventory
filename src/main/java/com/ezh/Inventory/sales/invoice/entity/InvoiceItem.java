@@ -19,9 +19,7 @@ public class InvoiceItem extends CommonSerializable {
     @JoinColumn(name = "invoice_id", nullable = false)
     private Invoice invoice;
 
-    // --- LINK TO SALES ORDER (For Partial Invoicing) ---
-    // This tells us exactly which line from the Sales Order is being billed.
-    // Essential for updating 'invoicedQty' on the SO.
+    //LINK TO SALES ORDER (For Partial Invoicing)
     @Column(name = "so_item_id")
     private Long soItemId;
 

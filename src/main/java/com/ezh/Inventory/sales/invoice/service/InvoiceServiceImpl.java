@@ -80,6 +80,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .deliveryStatus(InvoiceDeliveryStatus.PENDING)
                 .items(new ArrayList<>())
                 .remarks(dto.getRemarks())
+                .invoiceType(InvoiceType.CREDIT)
                 //Now this SAVE will work because all non-null fields have values
                 .subTotal(BigDecimal.ZERO)
                 .grandTotal(BigDecimal.ZERO)

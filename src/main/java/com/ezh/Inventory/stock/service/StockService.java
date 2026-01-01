@@ -14,9 +14,6 @@ public interface StockService {
     Page<StockDto> getCurrentStock(StockFilterDto filterDto, Integer page, Integer size);
     Page<StockLedgerDto> getStockTransactions(StockFilterDto filterDto, Integer page, Integer size);
     List<ItemStockSearchDto> searchItemsWithBatches(String query, Long warehouseId);
-    CommonResponse<?> createStockAdjustment(StockAdjustmentCreateDto dto) throws CommonException;
-    Page<StockAdjustmentListDto> getAllStockAdjustments(StockFilterDto filter, Integer page, Integer size);
-    StockAdjustmentDetailDto getStockAdjustmentById(Long id);
     StockDashboardDto getStockDashboard(Long warehouseId) throws CommonException;
 
 }
