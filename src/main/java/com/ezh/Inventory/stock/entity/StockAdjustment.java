@@ -3,6 +3,8 @@ package com.ezh.Inventory.stock.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -34,7 +36,8 @@ public class StockAdjustment extends CommonSerializable {
     private AdjustmentType reasonType; // DAMAGE, EXPIRED
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", columnDefinition = "adjustment_status")
     private AdjustmentStatus status; //DRAFT (Counting in progress), APPROVED (Stock updated), CANCELLED
 
     @Column(name = "reference", length = 100)

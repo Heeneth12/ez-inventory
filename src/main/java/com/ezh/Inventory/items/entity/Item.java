@@ -3,6 +3,8 @@ package com.ezh.Inventory.items.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 
@@ -32,7 +34,8 @@ public class Item extends CommonSerializable {
     private String barcode; // UPC / EAN / QR
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "item_type", nullable = false, columnDefinition = "item_type")
     private ItemType itemType;
 
     @Column(name = "image_url")

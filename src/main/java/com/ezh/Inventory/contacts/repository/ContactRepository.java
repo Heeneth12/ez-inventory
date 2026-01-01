@@ -32,7 +32,7 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
                     AND (LOWER(c.email) LIKE LOWER(CONCAT('%', :email, '%')) OR :email IS NULL)
                     AND (c.phone LIKE CONCAT('%', :phone, '%') OR :phone IS NULL)
                     AND (c.gstNumber LIKE CONCAT('%', :gst, '%') OR :gst IS NULL)
-                    AND (c.type = :type OR :type IS NULL)
+                    AND (CAST(c.type AS string) = :type OR :type IS NULL)
                     AND (c.active = :active OR :active IS NULL)
             """)
     Page<Contact> searchContacts(

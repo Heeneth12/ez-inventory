@@ -1,8 +1,11 @@
 package com.ezh.Inventory.approval.entity;
 
-import com.ezh.Inventory.utils.common.CommonSerializable; // Assuming this exists in your project
+import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.math.BigDecimal;
 
 @Entity
@@ -19,7 +22,8 @@ public class ApprovalConfig extends CommonSerializable {
     private Long tenantId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "approval_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "approval_type", columnDefinition = "approval_type")
     private ApprovalType approvalType;
 
     @Column(name = "is_enabled")

@@ -3,6 +3,8 @@ package com.ezh.Inventory.sales.delivery.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -33,6 +35,8 @@ public class Route  extends CommonSerializable {
     private String vehicleNumber;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "route_status")
     private RouteStatus status; // CREATED, IN_TRANSIT, COMPLETED
 
     @OneToMany(mappedBy = "route")

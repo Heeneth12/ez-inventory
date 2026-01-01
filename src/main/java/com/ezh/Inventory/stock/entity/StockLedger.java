@@ -3,6 +3,8 @@ package com.ezh.Inventory.stock.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 
@@ -25,14 +27,16 @@ public class StockLedger extends CommonSerializable {
     private Long warehouseId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "transaction_type", nullable = false) // IN / OUT
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "transaction_type", columnDefinition = "movement_type") // IN / OUT
     private MovementType transactionType;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "reference_type") // GRN / SALE / TRANSFER / RETURN
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "reference_type", columnDefinition = "reference_type") // GRN / SALE / TRANSFER / RETURN
     private ReferenceType referenceType;
 
     @Column(name = "reference_id")  //GRN_ID / SALE_ID ...

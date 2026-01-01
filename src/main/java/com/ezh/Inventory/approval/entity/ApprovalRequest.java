@@ -3,6 +3,9 @@ package com.ezh.Inventory.approval.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable; // Assuming this exists
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.math.BigDecimal;
 
 @Entity
@@ -19,7 +22,8 @@ public class ApprovalRequest extends CommonSerializable {
 
     // What kind of approval is this? (e.g., HIGH_VALUE_INVOICE)
     @Enumerated(EnumType.STRING)
-    @Column(name = "approval_type", length = 50, nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "approval_type", length = 50, columnDefinition = "approval_type")
     private ApprovalType approvalType;
 
     // --- Link to the Source ---
@@ -33,7 +37,8 @@ public class ApprovalRequest extends CommonSerializable {
 
     // --- Status Tracking ---
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", columnDefinition= "approval_status")
     private ApprovalStatus status;
 
     // The user who tried to create the Invoice/PO

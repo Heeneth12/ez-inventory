@@ -6,6 +6,8 @@ import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -36,11 +38,13 @@ public class Delivery extends CommonSerializable {
     private Contact customer;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "type", nullable = false, columnDefinition = "shipment_type")
     private ShipmentType type;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "shipment_status")
     private ShipmentStatus status; // PENDING, SCHEDULED, SHIPPED, DELIVERED
 
     @ManyToOne(fetch = FetchType.LAZY)

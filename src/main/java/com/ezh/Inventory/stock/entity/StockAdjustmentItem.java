@@ -3,6 +3,8 @@ package com.ezh.Inventory.stock.entity;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "stock_adjustment_item")
@@ -30,6 +32,7 @@ public class StockAdjustmentItem extends CommonSerializable {
     private Integer differenceQty; // Calculated: counted - system
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "reason_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "reason_type", columnDefinition = "adjustment_type")
     private AdjustmentType reasonType;
 }
