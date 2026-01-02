@@ -121,7 +121,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .state(dto.getState())
                 .country(dto.getCountry())
                 .pinCode(dto.getPinCode())
-                .type(dto.getType())
+                .addressType(dto.getType())
                 .build();
     }
 
@@ -169,7 +169,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .state(entity.getState())
                 .country(entity.getCountry())
                 .pinCode(entity.getPinCode())
-                .type(entity.getType())
+                .type(entity.getAddressType())
                 .build();
     }
 

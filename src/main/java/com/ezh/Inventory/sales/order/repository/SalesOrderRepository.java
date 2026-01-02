@@ -44,16 +44,18 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
                     SELECT * FROM sales_order so
                     WHERE so.tenant_id = :tenantId
                       AND (:id IS NULL OR so.id = :id)
-                      AND (:status IS NULL OR so.status = CAST(:status AS sales_order_status))
+                      AND (CAST(:status AS text) IS NULL OR so.status = CAST(:status AS sales_order_status))
                       AND (:customerId IS NULL OR so.customer_id = :customerId)
                       AND (:warehouseId IS NULL OR so.warehouse_id = :warehouseId)
                       AND (
-                            (:fromDate IS NULL AND :toDate IS NULL)
-                            OR (so.order_date BETWEEN :fromDate AND :toDate)
-                           )
-                      AND (:searchQuery IS NULL
-                           OR LOWER(so.order_number) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
-                           OR LOWER(so.remarks) LIKE LOWER(CONCAT('%', :searchQuery, '%')))
+                            (CAST(:fromDate AS date) IS NULL OR so.order_date >= CAST(:fromDate AS date))
+                            AND (CAST(:toDate AS date) IS NULL OR so.order_date <= CAST(:toDate AS date))
+                          )
+                      AND (
+                            CAST(:searchQuery AS text) IS NULL
+                            OR LOWER(so.order_number) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS text), '%'))
+                            OR LOWER(so.remarks) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS text), '%'))
+                          )
                     """,
             nativeQuery = true
     )

@@ -57,7 +57,7 @@ public class Delivery extends CommonSerializable {
     @Column(name = "shipped_date")
     private Date shippedDate;
 
-    @Column(name = "delivered _date")
+    @Column(name = "delivered_date")
     private Date deliveredDate;
 
     @Column(name = "delivery_address", length = 500)
