@@ -7,10 +7,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface ItemRepository extends JpaRepository<Item, Long> {
 
     boolean existsByItemCode(String itemCode);
@@ -40,17 +42,17 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
             """)
     List<Item> smartSearch(@Param("query") String query);
 
-    @Query(
-            "SELECT i FROM Item i " +
-                    "WHERE " +
-                    "(:searchQuery IS NULL OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchQuery, '%')) " +
-                    " OR LOWER(i.itemCode) LIKE LOWER(CONCAT('%', :searchQuery, '%')) " +
-                    " OR LOWER(i.barcode) LIKE LOWER(CONCAT('%', :searchQuery, '%'))) " +
-                    "AND (:active IS NULL OR i.isActive = :active) " +
-                    "AND (:itemType IS NULL OR i.itemType = :itemType) " +
-                    "AND (:brand IS NULL OR LOWER(i.brand) LIKE LOWER(CONCAT('%', :brand, '%'))) " +
-                    "AND (:category IS NULL OR LOWER(i.category) LIKE LOWER(CONCAT('%', :category, '%')))"
-    )
+    @Query("""
+            SELECT i FROM Item i 
+            WHERE 
+            (:searchQuery IS NULL OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchQuery, '%')) 
+             OR LOWER(i.itemCode) LIKE LOWER(CONCAT('%', :searchQuery, '%')) 
+             OR LOWER(i.barcode) LIKE LOWER(CONCAT('%', :searchQuery, '%'))) 
+            AND (:active IS NULL OR i.isActive = :active) 
+            AND (:itemType IS NULL OR i.itemType = :itemType) 
+            AND (:brand IS NULL OR LOWER(i.brand) LIKE LOWER(CONCAT('%', :brand, '%'))) 
+            AND (:category IS NULL OR LOWER(i.category) LIKE LOWER(CONCAT('%', :category, '%')))
+            """)
     Page<Item> searchItems(
             @Param("searchQuery") String searchQuery,
             @Param("active") Boolean active,

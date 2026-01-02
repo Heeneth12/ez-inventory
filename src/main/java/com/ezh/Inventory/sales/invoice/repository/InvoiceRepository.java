@@ -63,24 +63,26 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             Pageable pageable
     );
 
-    @Query("""
-                SELECT i FROM Invoice i
-                WHERE i.tenantId = :tenantId
-                  AND (:id IS NULL OR i.id = :id)
-                  AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
-                  AND (:status IS NULL OR i.status = :status)
-                  AND (:customerId IS NULL OR i.customer.id = :customerId)
-                  AND (:warehouseId IS NULL OR i.warehouseId = :warehouseId)
-                  AND (
-                        (:fromDate IS NULL AND :toDate IS NULL)
-                        OR (i.invoiceDate BETWEEN :fromDate AND :toDate)
-                      )
-                  AND (
-                        :searchQuery IS NULL
-                        OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
-                        OR LOWER(i.remarks) LIKE LOWER(CONCAT('%', :searchQuery, '%'))
-                      )
-            """)
+    @Query(
+            value = """
+                    SELECT * FROM inventory.invoice i
+                    WHERE i.tenant_id = :tenantId
+                      AND (:id IS NULL OR i.id = :id)
+                      AND (:salesOrderId IS NULL OR i.sales_order_id = :salesOrderId)
+                      -- CAST TO 'invoice_status' HERE:
+                      AND (CAST(:status AS text) IS NULL OR i.status = CAST(:status AS invoice_status))
+                      AND (:customerId IS NULL OR i.customer_id = :customerId)
+                      AND (:warehouseId IS NULL OR i.warehouse_id = :warehouseId)
+                      AND (CAST(:fromDate AS date) IS NULL OR i.invoice_date >= CAST(:fromDate AS date))
+                      AND (CAST(:toDate AS date) IS NULL OR i.invoice_date <= CAST(:toDate AS date))
+                      AND (
+                            CAST(:searchQuery AS text) IS NULL
+                            OR LOWER(i.invoice_number) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS text), '%'))
+                            OR LOWER(i.remarks) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS text), '%'))
+                          )
+                    """,
+            nativeQuery = true
+    )
     Page<Invoice> getAllInvoices(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
