@@ -157,11 +157,11 @@ CREATE TABLE delivery_route (
     tenant_id BIGINT NOT NULL,
     route_number VARCHAR(50) UNIQUE NOT NULL,
     area_name VARCHAR(255),
-    employee_id BIGINT,
+    employee_id BIGINT, -- Storing ID only, external service
     vehicle_number VARCHAR(50),
     status VARCHAR(50),
-    start_date TIMESTAMP,
-    CONSTRAINT fk_route_employee FOREIGN KEY (employee_id) REFERENCES employee(id) ON DELETE SET NULL
+    start_date TIMESTAMP
+    -- REMOVED: CONSTRAINT fk_route_employee reference
 );
 
 CREATE INDEX idx_route_tenant_id ON delivery_route(tenant_id);
@@ -179,7 +179,7 @@ CREATE TABLE delivery (
     customer_id BIGINT NOT NULL,
     type VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
-    delivery_person_id BIGINT,
+    delivery_person_id BIGINT, -- Storing ID only, external service
     scheduled_date TIMESTAMP,
     shipped_date TIMESTAMP,
     delivered_date TIMESTAMP,
