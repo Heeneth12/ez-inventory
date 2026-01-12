@@ -17,6 +17,8 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
     Optional<SalesOrder> findByIdAndTenantId(Long id, Long tenantId);
 
+    Optional<SalesOrder> findByOrderNumberAndTenantId(String OrderNumber, Long tenantId);
+
     Page<SalesOrder> findByTenantId(Long tenantId, Pageable pageable);
 
     @Query(
