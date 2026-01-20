@@ -9,6 +9,8 @@ import com.ezh.Inventory.approval.repository.ApprovalConfigRepository;
 import com.ezh.Inventory.approval.repository.ApprovalRequestRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.DocPrefix;
+import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.common.events.ApprovalDecisionEvent;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -254,6 +256,7 @@ public class ApprovalService {
         ApprovalRequest request = ApprovalRequest.builder()
                 .tenantId(UserContextUtil.getTenantIdOrThrow())
                 .approvalType(context.getType())
+                .approvalRequestNumber(DocumentNumberUtil.generate(DocPrefix.APP))
                 .referenceId(context.getReferenceId())
                 .referenceCode(context.getReferenceCode())
                 .requestedBy(UserContextUtil.getUserId())
@@ -293,6 +296,7 @@ public class ApprovalService {
 
         return ApprovalRequestDto.builder()
                 .id(entity.getId())
+                .approvalRequestNumber(entity.getApprovalRequestNumber())
                 .approvalType(entity.getApprovalType())
                 .referenceId(entity.getReferenceId())
                 .referenceCode(entity.getReferenceCode())

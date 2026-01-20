@@ -11,4 +11,5 @@ public enum DocPrefix {
     VEN,  // Vendor
     CUS,  // Customer
     ADJ,  // Adjustment
+    APP,  // Approval
 }

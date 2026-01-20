@@ -35,9 +35,9 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
             "WHERE sb.warehouseId = :warehouseId " +
             "AND sb.remainingQty > 0 " +
             "AND (:itemId IS NULL OR sb.itemId = :itemId) " +
-            "AND (:query IS NULL OR (LOWER(i.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
-            "OR LOWER(i.itemCode) LIKE LOWER(CONCAT('%', :query, '%')))) " +
+            "AND (:query IS NULL OR (LOWER(i.name) LIKE :query OR LOWER(i.itemCode) LIKE :query)) " +
             "ORDER BY i.name ASC, sb.expiryDate ASC")
-    List<StockSearchProjection> searchStockWithBatches(@Param("warehouseId") Long warehouseId, @Param("itemId") Long itemId,
+    List<StockSearchProjection> searchStockWithBatches(@Param("warehouseId") Long warehouseId,
+                                                       @Param("itemId") Long itemId,
                                                        @Param("query") String query);
 }

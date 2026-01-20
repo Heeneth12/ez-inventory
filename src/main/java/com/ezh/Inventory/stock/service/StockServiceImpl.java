@@ -177,14 +177,16 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ItemStockSearchDto> searchItemsWithBatches(StockFilterDto filter) {
 
         Long warehouseId = filter.getWarehouseId();
         Long itemId = filter.getItemId();
-        String query = (filter.getSearchQuery() != null && !filter.getSearchQuery().isEmpty())
-                ? filter.getSearchQuery()
-                : null;
+        String query = null;
+
+        if (filter.getSearchQuery() != null && !filter.getSearchQuery().trim().isEmpty()) {
+            query = "%" + filter.getSearchQuery().trim().toLowerCase() + "%";
+        }
 
         List<StockSearchProjection> rawData = stockBatchRepository.searchStockWithBatches(warehouseId, itemId, query);
 
