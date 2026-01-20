@@ -15,6 +15,7 @@ import java.util.Date;
 @Builder
 public class ApprovalRequestDto {
     private Long id;
+    private String approvalRequestNumber;
     private ApprovalType approvalType;
     private Long referenceId;
     private String referenceCode;

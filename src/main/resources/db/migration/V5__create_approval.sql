@@ -20,6 +20,7 @@ CREATE TABLE approval_config (
 CREATE TABLE approval_request (
     id BIGSERIAL PRIMARY KEY,
     uuid VARCHAR(36) UNIQUE NOT NULL,
+    approval_request_number VARCHAR(50) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT false,

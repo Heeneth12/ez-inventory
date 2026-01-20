@@ -19,6 +19,9 @@ public class ApprovalRequest extends CommonSerializable {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
+    @Column(name = "approval_request_number", nullable = false, unique = true, length = 40)
+    private String approvalRequestNumber;
+
     // What kind of approval is this? (e.g., HIGH_VALUE_INVOICE)
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_type", length = 50, nullable = false)
