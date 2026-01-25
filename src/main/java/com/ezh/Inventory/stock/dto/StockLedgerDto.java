@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Date;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,4 +25,5 @@ public class StockLedgerDto {
     private Long referenceId;
     private Integer beforeQty;
     private Integer afterQty;
+    private Date createdAt;
 }

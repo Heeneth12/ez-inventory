@@ -333,6 +333,7 @@ public class StockServiceImpl implements StockService {
                 .referenceId(stockLedger.getReferenceId())
                 .beforeQty(stockLedger.getBeforeQty())
                 .afterQty(stockLedger.getAfterQty())
+                .createdAt(stockLedger.getCreatedAt())
                 .build();
     }
 
