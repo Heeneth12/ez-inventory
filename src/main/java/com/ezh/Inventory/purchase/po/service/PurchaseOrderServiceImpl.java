@@ -2,6 +2,8 @@ package com.ezh.Inventory.purchase.po.service;
 
 import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
+import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderItemDto;
 import com.ezh.Inventory.purchase.po.entity.PoStatus;
@@ -26,6 +28,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +39,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseOrderRepository poRepository;
     private final PurchaseOrderItemRepository poItemRepository;
     private final ContactRepository contactRepository;
+    private final ItemRepository itemRepository;
 
     @Override
     @Transactional
@@ -199,10 +204,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // Only map items if allowed
         if (passItems && items != null) {
+            List<Long> itemIds = items.stream()
+                    .map(PurchaseOrderItem::getItemId)
+                    .distinct()
+                    .toList();
+
+            Map<Long, String> itemNamesMap = itemRepository.findByIdIn(itemIds)
+                    .stream()
+                    .collect(Collectors.toMap(Item::getId, Item::getName));
+
             List<PurchaseOrderItemDto> itemDtos = items.stream()
                     .map(item -> PurchaseOrderItemDto.builder()
                             .id(item.getId())
                             .itemId(item.getItemId())
+                            .itemName(itemNamesMap.getOrDefault(item.getItemId(), "Unknown Item"))
                             .orderedQty(item.getOrderedQty())
                             .unitPrice(item.getUnitPrice())
                             .build()
