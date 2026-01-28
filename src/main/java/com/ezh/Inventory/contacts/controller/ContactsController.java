@@ -3,6 +3,10 @@ package com.ezh.Inventory.contacts.controller;
 
 import com.ezh.Inventory.contacts.dto.ContactDto;
 import com.ezh.Inventory.contacts.dto.ContactFilter;
+import com.ezh.Inventory.contacts.dto.NetworkRequestDto;
+import com.ezh.Inventory.contacts.dto.TenantDto;
+import com.ezh.Inventory.contacts.entiry.NetworkRequest;
+import com.ezh.Inventory.contacts.entiry.NetworkStatus;
 import com.ezh.Inventory.contacts.service.ContactService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -111,5 +115,33 @@ public class ContactsController {
         log.info("Fetching all contacts with filter {}", contactFilter);
         List<ContactDto> response = contactService.searchContact(contactFilter);
         return ResponseResource.success(HttpStatus.OK, response, "Contacts fetched successfully");
+    }
+
+    @GetMapping(value = "/network/all")
+    public ResponseResource<List<TenantDto>> getMyNetwork() throws CommonException {
+        log.info("Fetching established business network connections");
+        List<TenantDto> response = contactService.getMyNetwork();
+        return ResponseResource.success(HttpStatus.OK, response, "Network connections fetched successfully");
+    }
+
+    @PostMapping(value = "/network/{id}/update")
+    public ResponseResource<CommonResponse<?>> updateNetworkStatus(@PathVariable Long id, @RequestParam NetworkStatus status) throws CommonException {
+        log.info("Updating Network Request {} to status {}", id, status);
+        CommonResponse<?> response = contactService.updateNetworkStatus(id, status);
+        return ResponseResource.success(HttpStatus.OK, response, "Network status updated successfully");
+    }
+
+    @PostMapping(value = "/network/request", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> sendNetworkRequest(@RequestBody NetworkRequestDto networkRequestDto) throws CommonException {
+        log.info("Sending network trade request: {}", networkRequestDto);
+        CommonResponse<?> response = contactService.sendNetworkRequest(networkRequestDto);
+        return ResponseResource.success(HttpStatus.CREATED, response, "Trade request sent successfully");
+    }
+
+    @GetMapping(value = "/network/requests/incoming", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<List<NetworkRequest>> getIncomingRequests() throws CommonException {
+        log.info("Fetching incoming network requests for current tenant");
+        List<NetworkRequest> requests = contactService.getIncomingRequests();
+        return ResponseResource.success(HttpStatus.OK, requests, "Incoming requests fetched successfully");
     }
 }
