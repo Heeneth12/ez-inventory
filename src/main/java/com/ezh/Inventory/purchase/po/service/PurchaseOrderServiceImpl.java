@@ -44,6 +44,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional
     public CommonResponse createPurchaseOrder(PurchaseOrderDto dto) {
+
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Contact contact = contactRepository.findByIdAndTenantId(dto.getSupplierId(),tenantId)
@@ -58,7 +59,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .orderNumber("PO-" + System.currentTimeMillis()) // Replace with sequence generator
                 .orderDate(System.currentTimeMillis())
                 .expectedDeliveryDate(dto.getExpectedDeliveryDate())
-                .poStatus(PoStatus.ISSUED) // Or DRAFT if you want an approval step
+                .poStatus(dto.getStatus() != null ? dto.getStatus() : PoStatus.ISSUED)
                 .notes(dto.getNotes())
                 .build();
 

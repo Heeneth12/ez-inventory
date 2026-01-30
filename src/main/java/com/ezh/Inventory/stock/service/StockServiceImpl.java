@@ -163,16 +163,18 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional(readOnly = true)
     public Page<StockDto> getCurrentStock(StockFilterDto filterDto, Integer page, Integer size) throws CommonException {
+        Long tenantId = getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size);
-        Page<Stock> stocks = stockRepository.findAll(pageable);
+        Page<Stock> stocks = stockRepository.findByTenantId(tenantId, pageable);
         return stocks.map(this::convertToDTO);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StockLedgerDto> getStockTransactions(StockFilterDto filterDto, Integer page, Integer size) throws CommonException {
+        Long tenantId = getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size);
-        Page<StockLedger> stockLedger = stockLedgerRepository.findAll(pageable);
+        Page<StockLedger> stockLedger = stockLedgerRepository.findByTenantId(tenantId, pageable);
         return stockLedger.map(this::convertToDTO);
     }
 
@@ -180,6 +182,7 @@ public class StockServiceImpl implements StockService {
     @Transactional(readOnly = true)
     public List<ItemStockSearchDto> searchItemsWithBatches(StockFilterDto filter) {
 
+        Long tenantId = getTenantIdOrThrow();
         Long warehouseId = filter.getWarehouseId();
         Long itemId = filter.getItemId();
         String query = null;
@@ -188,7 +191,7 @@ public class StockServiceImpl implements StockService {
             query = "%" + filter.getSearchQuery().trim().toLowerCase() + "%";
         }
 
-        List<StockSearchProjection> rawData = stockBatchRepository.searchStockWithBatches(warehouseId, itemId, query);
+        List<StockSearchProjection> rawData = stockBatchRepository.searchStockWithBatches(tenantId, warehouseId, itemId, query);
 
         if (rawData.isEmpty()) {
             return Collections.emptyList();
@@ -236,8 +239,6 @@ public class StockServiceImpl implements StockService {
                 .closingQty(0)
                 .build();
     }
-
-
 
 
     @Override
