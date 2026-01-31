@@ -5,6 +5,7 @@ import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
+import com.ezh.Inventory.purchase.po.dto.PurchaseOrderFilter;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderItemDto;
 import com.ezh.Inventory.purchase.po.entity.PoStatus;
 import com.ezh.Inventory.purchase.po.entity.PurchaseOrder;
@@ -47,8 +48,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        Contact contact = contactRepository.findByIdAndTenantId(dto.getSupplierId(),tenantId)
-                .orElseThrow(() -> new  CommonException("", HttpStatus.BAD_REQUEST));
+        Contact contact = contactRepository.findByIdAndTenantId(dto.getSupplierId(), tenantId)
+                .orElseThrow(() -> new CommonException("", HttpStatus.BAD_REQUEST));
 
         // 1. Create Header
         PurchaseOrder po = PurchaseOrder.builder()
@@ -107,12 +108,22 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PurchaseOrderDto> getAllPurchaseOrders(Integer page, Integer size) {
+    public Page<PurchaseOrderDto> getAllPurchaseOrders(Integer page, Integer size, PurchaseOrderFilter filter) {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<PurchaseOrder> poPage = poRepository.findAllByTenantId(tenantId, pageable);
+        Page<PurchaseOrder> poPage = poRepository.findAllPurchaseOrders(
+                tenantId,
+                filter.getId(),
+                filter.getStatus() != null ? PoStatus.valueOf(filter.getStatus()) : null,
+                filter.getSupplierId(),
+                filter.getWarehouseId(),
+                filter.getSearchQuery(),
+                filter.getFromDate(),
+                filter.getToDate(),
+                pageable
+        );
 
         return poPage.map(po -> mapToDto(po, Collections.emptyList(), false));
     }
@@ -167,25 +178,27 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     @Transactional
-    public CommonResponse cancelPurchaseOrder(Long poId) throws CommonException {
+    public CommonResponse updatePurchaseOrderStatus(Long poId, PoStatus newStatus) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         PurchaseOrder po = poRepository.findByIdAndTenantId(poId, tenantId)
                 .orElseThrow(() -> new CommonException("PO not found", HttpStatus.BAD_REQUEST));
 
-
-        // VALIDATION: Cannot cancel if goods received
-        long receivedCount = poItemRepository.countReceivedItemsForPo(poId); // Custom Query needed
-        // OR check header items:
-        // boolean hasReceived = poItemRepository.findByPurchaseOrderId(poId).stream().anyMatch(i -> i.getReceivedQty() > 0);
-
-        if (receivedCount > 0) {
-            throw new CommonException("Cannot cancel PO. Goods have already been received. Use Purchase Return instead.", HttpStatus.BAD_REQUEST);
+        // Logic for Cancellation
+        if (newStatus == PoStatus.CANCELLED) {
+            long receivedCount = poItemRepository.countReceivedItemsForPo(poId);
+            if (receivedCount > 0) {
+                throw new CommonException("Cannot cancel PO. Goods have already been received.", HttpStatus.BAD_REQUEST);
+            }
         }
 
-        po.setPoStatus(PoStatus.CANCELLED);
+        // Update to the requested status
+        po.setPoStatus(newStatus);
         poRepository.save(po);
 
-        return CommonResponse.builder().id(String.valueOf(po.getId())).message("Purchase Order Cancelled").build();
+        return CommonResponse.builder()
+                .id(String.valueOf(po.getId()))
+                .message("Purchase Order status updated to " + newStatus)
+                .build();
     }
 
     // Mapper Helper
