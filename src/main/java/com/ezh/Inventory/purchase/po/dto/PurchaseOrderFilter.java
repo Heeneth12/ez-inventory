@@ -5,7 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Getter
 @Setter
@@ -17,6 +19,16 @@ public class PurchaseOrderFilter {
     private String status;
     private Long supplierId;
     private Long warehouseId;
-    private Date fromDate;
-    private Date toDate;
+    private LocalDate fromDate; // Use LocalDate for input
+    private LocalDate toDate;   // Use LocalDate for input
+
+    // Get 00:00:00 of the selected day
+    public LocalDateTime getStartDateTime() {
+        return fromDate != null ? fromDate.atStartOfDay() : null;
+    }
+
+    // Get 23:59:59.999999 of the selected day
+    public LocalDateTime getEndDateTime() {
+        return toDate != null ? toDate.atTime(LocalTime.MAX) : null;
+    }
 }

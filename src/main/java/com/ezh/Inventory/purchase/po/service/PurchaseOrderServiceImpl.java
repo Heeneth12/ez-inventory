@@ -120,8 +120,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 filter.getSupplierId(),
                 filter.getWarehouseId(),
                 filter.getSearchQuery(),
-                filter.getFromDate(),
-                filter.getToDate(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
                 pageable
         );
 

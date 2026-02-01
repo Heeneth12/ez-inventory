@@ -14,8 +14,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Contact extends CommonSerializable{
+public class Contact extends CommonSerializable {
 
+    @Column(name = "contact_code", nullable = false)
     private String contactCode;
 
     @Column(name = "tenant_id", nullable = false)
