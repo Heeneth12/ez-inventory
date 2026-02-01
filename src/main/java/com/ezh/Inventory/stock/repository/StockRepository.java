@@ -1,6 +1,7 @@
 package com.ezh.Inventory.stock.repository;
 
 import com.ezh.Inventory.stock.entity.Stock;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +19,8 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     Optional<Stock> findByItemIdAndWarehouseIdAndTenantId(Long itemId, Long warehouseId, Long tenantId);
 
     Optional<Stock> findByItemId(Long itemId);
+
+    Page<Stock> findByTenantId(Long tenantId, Pageable pageable);
 
     // 1. Total Stock Value
     @Query("SELECT COALESCE(SUM(s.stockValue), 0) FROM Stock s WHERE s.tenantId = :tenantId AND (:warehouseId IS NULL OR s.warehouseId = :warehouseId)")

@@ -1,5 +1,7 @@
 package com.ezh.Inventory.purchase.grn.service;
 
+import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.grn.dto.GrnDto;
 import com.ezh.Inventory.purchase.grn.dto.GrnItemDto;
 import com.ezh.Inventory.purchase.grn.entity.GoodsReceipt;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +49,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final PurchaseOrderItemRepository poItemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockService stockService;
+    private final ItemRepository itemRepository;
 
     public CommonResponse createAndApproveGrn(GrnDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
@@ -190,10 +194,18 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     }
 
     private GrnDto mapToGrnDto(GoodsReceipt grn, List<GoodsReceiptItem> items) {
-
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         PurchaseOrder purchaseOrder = poRepository.findByIdAndTenantId(grn.getPurchaseOrderId(), tenantId)
                 .orElseThrow(() -> new CommonException("PO not found", HttpStatus.BAD_REQUEST));
+
+        List<Long> itemIds = items.stream()
+                .map(GoodsReceiptItem::getItemId)
+                .distinct()
+                .toList();
+
+        Map<Long, String> itemNamesMap = itemRepository.findByIdIn(itemIds)
+                .stream()
+                .collect(Collectors.toMap(Item::getId, Item::getName));
 
         return GrnDto.builder()
                 .id(grn.getId())
@@ -206,17 +218,17 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .createdAt(grn.getCreatedAt())
                 .items(
                         items.stream()
-                                .map(this::mapToGrnItemDto)
+                                .map(item -> mapToGrnItemDto(item, itemNamesMap))
                                 .toList()
                 )
                 .build();
     }
 
-    private GrnItemDto mapToGrnItemDto(GoodsReceiptItem item) {
-
+    private GrnItemDto mapToGrnItemDto(GoodsReceiptItem item, Map<Long, String> itemNamesMap) {
         return GrnItemDto.builder()
                 .poItemId(item.getPoItemId())
                 .itemId(item.getItemId())
+                .itemName(itemNamesMap.getOrDefault(item.getItemId(), "Unknown Item"))
                 .receivedQty(item.getReceivedQty())
                 .rejectedQty(item.getRejectedQty())
                 .batchNumber(item.getBatchNumber())

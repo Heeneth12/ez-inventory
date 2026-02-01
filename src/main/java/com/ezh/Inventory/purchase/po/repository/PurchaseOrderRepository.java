@@ -1,15 +1,48 @@
 package com.ezh.Inventory.purchase.po.repository;
 
+import com.ezh.Inventory.purchase.po.entity.PoStatus;
 import com.ezh.Inventory.purchase.po.entity.PurchaseOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
 public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Long> {
     Optional<PurchaseOrder> findByIdAndTenantId(Long id, Long tenantId);
     Page<PurchaseOrder> findAllByTenantId(Long tenantId, Pageable pageable);
+
+    @Query("""
+    SELECT po FROM PurchaseOrder po
+    WHERE po.tenantId = :tenantId
+      AND (:id IS NULL OR po.id = :id)
+      AND (:status IS NULL OR po.poStatus = :status)
+      AND (:supplierId IS NULL OR po.supplierId = :supplierId)
+      AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)
+      AND (
+            (CAST(:fromDate AS timestamp) IS NULL OR po.createdAt >= :fromDate)
+            AND (CAST(:toDate AS timestamp) IS NULL OR po.createdAt <= :toDate)
+          )
+      AND (
+            CAST(:searchQuery AS string) IS NULL
+            OR LOWER(po.orderNumber) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+            OR LOWER(po.supplierName) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+          )
+    """)
+    Page<PurchaseOrder> findAllPurchaseOrders(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("status") PoStatus status,
+            @Param("supplierId") Long supplierId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("searchQuery") String searchQuery,
+            @Param("fromDate") LocalDateTime fromDate, // Changed to LocalDateTime
+            @Param("toDate") LocalDateTime toDate,     // Changed to LocalDateTime
+            Pageable pageable
+    );
 }

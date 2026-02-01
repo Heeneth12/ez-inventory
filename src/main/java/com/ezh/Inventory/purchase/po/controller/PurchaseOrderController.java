@@ -1,6 +1,8 @@
 package com.ezh.Inventory.purchase.po.controller;
 
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
+import com.ezh.Inventory.purchase.po.dto.PurchaseOrderFilter;
+import com.ezh.Inventory.purchase.po.entity.PoStatus;
 import com.ezh.Inventory.purchase.po.service.PurchaseOrderService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -35,11 +37,12 @@ public class PurchaseOrderController {
         return ResponseResource.success(HttpStatus.OK, dto, "Purchase Order details");
     }
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<PurchaseOrderDto>> getAllPo(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+    @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<Page<PurchaseOrderDto>> getAllPo(@RequestBody PurchaseOrderFilter filter,
+                                                             @RequestParam(defaultValue = "0") int page,
+                                                             @RequestParam(defaultValue = "10") int size) {
         log.info("Fetching Purchase Orders page={} size={}", page, size);
-        Page<PurchaseOrderDto> result = purchaseOrderService.getAllPurchaseOrders(page, size);
+        Page<PurchaseOrderDto> result = purchaseOrderService.getAllPurchaseOrders(page, size, filter);
         return ResponseResource.success(HttpStatus.OK, result, "Purchase Orders list");
     }
 
@@ -52,10 +55,10 @@ public class PurchaseOrderController {
         return ResponseResource.success(HttpStatus.OK, response, "Purchase Order updated successfully");
     }
 
-    @DeleteMapping(value = "/{poId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> cancelPo(@PathVariable Long poId) throws CommonException {
-        log.info("Cancelling Purchase Order ID: {}", poId);
-        CommonResponse response = purchaseOrderService.cancelPurchaseOrder(poId);
-        return ResponseResource.success(HttpStatus.OK, response, "Purchase Order cancelled successfully");
+    @PostMapping(value = "/{poId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse> updatePoStatus(@PathVariable Long poId, @RequestParam PoStatus status) throws CommonException {
+        log.info("Updating status for Purchase Order ID: {} to {}", poId, status);
+        CommonResponse response = purchaseOrderService.updatePurchaseOrderStatus(poId, status);
+        return ResponseResource.success(HttpStatus.OK, response, "Purchase Order status updated to " + status);
     }
 }

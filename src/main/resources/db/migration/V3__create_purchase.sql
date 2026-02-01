@@ -1,3 +1,56 @@
+-- Create purchase_request table (Header)
+CREATE TABLE purchase_request (
+    id BIGSERIAL PRIMARY KEY,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
+
+    -- Purchase request specific fields
+    tenant_id BIGINT NOT NULL,
+    supplier_id BIGINT NOT NULL,
+    warehouse_id BIGINT NOT NULL,
+    requested_by_user_id BIGINT,
+    department VARCHAR(100),
+    prq_number VARCHAR(100) UNIQUE NOT NULL,
+    status VARCHAR(50),
+    total_estimated_amount DECIMAL(18, 2),
+    notes TEXT
+);
+
+-- Create purchase_request_item table (Lines)
+CREATE TABLE purchase_request_item (
+    id BIGSERIAL PRIMARY KEY,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
+
+    -- Purchase request item specific fields
+    purchase_request_id BIGINT NOT NULL,
+    item_id BIGINT NOT NULL,
+    requested_qty INTEGER NOT NULL,
+    estimated_unit_price DECIMAL(18, 2),
+    line_total DECIMAL(18, 2),
+
+    -- Foreign key constraint linking to the header
+    CONSTRAINT fk_prq_item_purchase_request FOREIGN KEY (purchase_request_id)
+        REFERENCES purchase_request(id) ON DELETE CASCADE
+);
+
+-- Create indexes for performance and lookups
+CREATE INDEX idx_purchase_request_uuid ON purchase_request(uuid);
+CREATE INDEX idx_purchase_request_tenant_id ON purchase_request(tenant_id);
+CREATE INDEX idx_purchase_request_status ON purchase_request(status);
+CREATE INDEX idx_prq_item_purchase_request_id ON purchase_request_item(purchase_request_id);
+
+-- Add table and column comments
+COMMENT ON TABLE purchase_request IS 'Internal requests for purchasing goods';
+COMMENT ON TABLE purchase_request_item IS 'Line items for internal purchase requests';
+COMMENT ON COLUMN purchase_request.prq_number IS 'Unique PRQ number (e.g., PRQ-2026-001)';
+
+
+
 -- Create purchase_order table
 CREATE TABLE purchase_order (
     id BIGSERIAL PRIMARY KEY,

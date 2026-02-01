@@ -2,207 +2,194 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Invoice</title>
+    <title>Tax Invoice</title>
     <style>
-        /*<![CDATA[*/
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #333333;
-            font-size: 14px;
+            font-family: 'Arial', sans-serif;
+            font-size: 11px;
             margin: 0;
-            padding: 40px;
-            background-color: #ffffff;
+            padding: 10px;
+            color: #000;
         }
+        .container { border: 1px solid #000; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid #000; padding: 5px; vertical-align: top; }
 
+        /* Header Styles */
+        .invoice-title { font-weight: bold; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #ddd; }
+        .company-name { font-size: 18px; font-weight: bold; color: #6a1b9a; }
+        .label { color: #555; font-weight: bold; margin-bottom: 2px; }
+
+        /* Item Table Styles */
+        .items-header { background-color: #f3e5f5; text-align: center; font-weight: bold; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
-        .text-light { color: #888888; }
-        .font-bold { font-weight: bold; }
 
-        /* Header */
-        .header-table { width: 100%; border-bottom: 1px solid #eeeeee; padding-bottom: 30px; margin-bottom: 30px; }
-        .title { font-size: 36px; font-weight: 700; margin-bottom: 5px; color: #111; }
-        .invoice-id { font-size: 14px; color: #666; }
+        /* Footer Styles */
+        .bank-details { width: 50%; }
+        .qr-section { width: 50%; }
+        .total-row { background-color: #f3e5f5; font-weight: bold; }
+        .terms { font-size: 10px; }
+        .signature { text-align: right; padding-top: 30px; border: none; }
 
-        .logo-box {
-            width: 50px;
-            height: 50px;
-            background-color: #3b5aff;
-            border-radius: 12px;
-            color: #fff;
-            text-align: center;
-            line-height: 50px;
-            font-size: 24px;
-            font-weight: bold;
-            float: right;
-        }
-
-        /* Meta Data */
-        .meta-table { width: 100%; margin-bottom: 40px; }
-        .meta-label { font-size: 11px; color: #999; margin-bottom: 5px; display: block; }
-        .meta-value { font-size: 14px; font-weight: 600; color: #333; }
-
-        /* Addresses */
-        .address-table { width: 100%; margin-bottom: 50px; }
-        .address-col { width: 50%; vertical-align: top; padding-right: 20px; }
-        .address-title { font-size: 12px; color: #999; margin-bottom: 8px; }
-        .company-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #111; }
-        .address-lines { font-size: 13px; color: #555; line-height: 1.6; }
-
-        /* Items */
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-        .items-table th {
-            background-color: #f7f9fc;
-            color: #555;
-            font-size: 12px;
-            font-weight: 600;
-            text-align: left;
-            padding: 12px 15px;
-            border-radius: 4px 4px 0 0;
-        }
-        .items-table td {
-            padding: 15px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: top;
-        }
-        .item-title { font-size: 14px; font-weight: 600; color: #333; display: block; margin-bottom: 4px; }
-        .item-desc { font-size: 12px; color: #888; line-height: 1.4; }
-
-        /* Footer */
-        .footer-table { width: 100%; }
-        .notes-col { width: 60%; vertical-align: top; padding-right: 40px; }
-        .totals-col { width: 40%; vertical-align: top; }
-
-        .payment-info h4 { font-size: 13px; margin: 0 0 5px 0; color: #333; }
-        .payment-info p { font-size: 12px; color: #777; margin: 0; line-height: 1.5; }
-        /*]]>*/
+        .no-border { border: none !important; }
+        .border-bottom-only { border: none; border-bottom: 1px solid #000; }
     </style>
 </head>
 <body>
 
-<table class="header-table">
-    <tr>
-        <td style="vertical-align: top;">
-            <div class="title">Invoice</div>
-            <div class="invoice-id" th:text="${invoice.invoiceNumber}">INC 0000-001</div>
-        </td>
-        <td style="vertical-align: top;" class="text-right">
-            <div class="logo-box">E</div>
-        </td>
-    </tr>
-</table>
+<div class="container">
+    <table>
+        <tr>
+            <td colspan="2" class="no-border">
+                <span class="invoice-title">Tax Invoice</span> <span style="font-size: 10px; color: #888;">ORIGINAL FOR RECIPIENT</span>
+            </td>
+        </tr>
+        <tr>
+            <td width="50%">
+                <div class="company-name">Shivam Electronics</div>
+                <div>Hebbal, Bangalore - 560093, Bangalore, Karnataka, 560093</div>
+                <div><strong>GSTIN:</strong> 29GGGGG1314R9Z6</div>
+                <div><strong>Mobile:</strong> 9902510999</div>
+            </td>
+            <td width="50%">
+                <table>
+                    <tr>
+                        <td class="no-border"><strong>Invoice No.</strong><br/><span th:text="${invoice.invoiceNumber}">30</span></td>
+                        <td class="no-border"><strong>Invoice Date</strong><br/><span th:text="${#dates.format(invoice.invoiceDate, 'dd/MM/yyyy')}">15/01/2025</span></td>
+                        <td class="no-border"><strong>Due Date</strong><br/>14/02/2025</td>
+                    </tr>
+                    <tr>
+                        <td class="no-border" colspan="2"><strong>Salesman</strong><br/>Arjun S</td>
+                        <td class="no-border"><strong>Challan No.</strong><br/>1234567890</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="label">BILL TO</div>
+                <strong th:text="${invoice.customer.name}">AJAY SHAH</strong><br/>
+                Mobile: <span th:text="${invoice.customer.phone}">9993349993</span><br/>
+                Email: <span th:text="${invoice.customer.email}">ajshah@gmail.com</span>
+            </td>
+            <td>
+                <div class="label">SHIP TO</div>
+                <strong th:text="${invoice.customer.name}">AJAY SHAH</strong><br/>
+                <div th:text="${invoice.customer.addresses != null and !invoice.customer.addresses.isEmpty() ? invoice.customer.addresses[0].addressLine1 : 'Address details here'}">Address details here</div>
+            </td>
+        </tr>
+    </table>
 
-<table class="meta-table">
-    <tr>
-        <td width="33%">
-            <span class="meta-label">PO Number</span>
-            <span class="meta-value" th:text="${invoice.salesOrder != null ? invoice.salesOrder.id : '-'}">123456XXXX</span>
-        </td>
-        <td width="33%" class="text-center">
-            <span class="meta-label">Invoice Date</span>
-            <span class="meta-value" th:text="${#dates.format(invoice.invoiceDate, 'MMM dd, yyyy')}">May 12, 2025</span>
-        </td>
-        <td width="33%" class="text-right">
-            <span class="meta-label">Due Date</span>
-            <span class="meta-value" th:text="${#dates.format(invoice.invoiceDate, 'MMM dd, yyyy')}">July 09, 2025</span>
-        </td>
-    </tr>
-</table>
+    <table style="border-top: none;">
+        <thead>
+        <tr class="items-header">
+            <th width="5%">S.NO.</th>
+            <th width="45%">ITEMS</th>
+            <th width="10%">HSN</th>
+            <th width="15%">WARRANTY EXPIRY</th>
+            <th width="5%">QTY.</th>
+            <th width="10%">RATE</th>
+            <th width="10%">AMOUNT</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="item, iter : ${invoice.items}" style="min-height: 200px;">
+            <td class="text-center" th:text="${iter.index + 1}">1</td>
+            <td>
+                <div th:text="${item.itemName}">LG 65-inch QLED 4K Smart TV</div>
+                <div style="font-size: 9px; color: #666;" th:text="'IMEI/Serial No: ' + ${item.batchNumber != null ? item.batchNumber : 'N/A'}">Serial: 12345</div>
+            </td>
+            <td class="text-center">85287219</td>
+            <td class="text-center">10 Jan, 2026</td>
+            <td class="text-center" th:text="${item.quantity}">1 PCS</td>
+            <td class="text-right" th:text="${item.unitPrice}">83,813.56</td>
+            <td class="text-right" th:text="${item.unitPrice * item.quantity}">83,813.56</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="no-border"></td>
+            <td colspan="2" class="text-right"><strong>CGST @9%</strong></td>
+            <td class="text-right" th:text="${invoice.totalTax / 2}">7,543.22</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="no-border"></td>
+            <td colspan="2" class="text-right"><strong>SGST @9%</strong></td>
+            <td class="text-right" th:text="${invoice.totalTax / 2}">7,543.22</td>
+        </tr>
+        <tr class="total-row">
+            <td colspan="4" class="text-right">TOTAL</td>
+            <td class="text-center">1</td>
+            <td colspan="2" class="text-right" th:text="'₹ ' + ${invoice.grandTotal}">₹ 98,900</td>
+        </tr>
+        </tbody>
+    </table>
 
-<table class="address-table">
-    <tr>
-        <td class="address-col">
-            <div class="address-title">From</div>
-            <div class="company-name">EZH Company</div>
-            <div class="address-lines">
-                accounts@ezhcompany.com<br/>
-                +1 (555) 123-4567<br/><br/>
-                101 Tech Park, Silicon Valley<br/>
-                Floor 4, San Francisco, CA 94105<br/>
-                Tax ID: EZH-88776655
-            </div>
-        </td>
-        <td class="address-col">
-            <div class="address-title">To</div>
-            <div class="company-name" th:text="${invoice.customer.name}">John Deo</div>
-            <div class="address-lines">
-                <span th:text="${invoice.customer.email}">john@example.com</span><br/>
-                <span th:text="${invoice.customer.phone}">+1(852)96X XXX</span><br/><br/>
-                <span th:if="${invoice.customer.addresses != null and !invoice.customer.addresses.isEmpty()}">
-                        <span th:text="${invoice.customer.addresses[0].addressLine1}">123 Main Street</span><br/>
-                        <span th:text="${invoice.customer.addresses[0].city}">City</span>,
-                        <span th:text="${invoice.customer.addresses[0].state}">State</span>
-                    </span>
-                <span th:unless="${invoice.customer.addresses != null and !invoice.customer.addresses.isEmpty()}">
-                        No Address Provided
-                    </span>
-                <br/>Tax ID: 98765XXXXX
-            </div>
-        </td>
-    </tr>
-</table>
+    <table>
+        <tr class="items-header">
+            <th rowspan="2">HSN/SAC</th>
+            <th rowspan="2">Taxable Value</th>
+            <th colspan="2">CGST</th>
+            <th colspan="2">SGST</th>
+            <th rowspan="2">Total Tax Amount</th>
+        </tr>
+        <tr class="items-header">
+            <th>Rate</th>
+            <th>Amount</th>
+            <th>Rate</th>
+            <th>Amount</th>
+        </tr>
+        <tr>
+            <td class="text-center">85287219</td>
+            <td class="text-right" th:text="${invoice.subTotal}">83,813.56</td>
+            <td class="text-center">9%</td>
+            <td class="text-right" th:text="${invoice.totalTax / 2}">7,543.22</td>
+            <td class="text-center">9%</td>
+            <td class="text-right" th:text="${invoice.totalTax / 2}">7,543.22</td>
+            <td class="text-right" th:text="${invoice.totalTax}">15,086.44</td>
+        </tr>
+    </table>
 
-<table class="items-table">
-    <thead>
-    <tr>
-        <th style="width: 50%;">Item</th>
-        <th style="width: 10%;" class="text-right">Qty</th>
-        <th style="width: 20%;" class="text-right">Price</th>
-        <th style="width: 20%;" class="text-right">Amount</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr th:each="item : ${invoice.items}">
-        <td>
-            <span class="item-title" th:text="${item.itemName}">Product</span>
-            <span class="item-desc" th:if="${item.sku != null}" th:text="'SKU: ' + ${item.sku}">SKU: 123</span>
-        </td>
-        <td class="text-right" th:text="${item.quantity}">1</td>
-        <td class="text-right" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
-        <td class="text-right font-bold" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
-    </tr>
-    </tbody>
-</table>
-
-<table class="footer-table">
-    <tr>
-        <td class="notes-col">
-            <div class="payment-info" style="margin-bottom: 20px;">
-                <h4>Payment Method</h4>
-                <p>Bank Transfer<br/>Account Name: EZH Company<br/>Account Number: 99188949XXXXXX</p>
-            </div>
-            <div class="payment-info">
-                <h4>Memo</h4>
-                <p th:text="${invoice.remarks != null ? invoice.remarks : 'Thank you for your business!'}">
-                    Default memo
-                </p>
-            </div>
-        </td>
-        <td class="totals-col">
-            <table style="width: 100%;">
-                <tr>
-                    <td class="text-light" style="padding: 5px 0;">Subtotal</td>
-                    <td class="text-right" th:text="${#numbers.formatDecimal(invoice.subTotal, 1, 'COMMA', 2, 'POINT')}">$ 100.00</td>
-                </tr>
-                <tr>
-                    <td class="text-light" style="padding: 5px 0;">Tax</td>
-                    <td class="text-right" th:text="'+ ' + ${#numbers.formatDecimal(invoice.totalTax, 1, 'COMMA', 2, 'POINT')}">$ 10.00</td>
-                </tr>
-                <tr>
-                    <td class="text-light" style="padding: 5px 0;">Discount</td>
-                    <td class="text-right" th:text="'- ' + ${#numbers.formatDecimal(invoice.totalDiscount, 1, 'COMMA', 2, 'POINT')}">$ 0.00</td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="border-top: 2px solid #333; padding-top: 15px; margin-top: 10px;"></td>
-                </tr>
-                <tr>
-                    <td class="font-bold" style="font-size: 16px;">Total</td>
-                    <td class="text-right font-bold" style="font-size: 20px;" th:text="${#numbers.formatDecimal(invoice.grandTotal, 1, 'COMMA', 2, 'POINT')}">$ 110.00</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
+    <table>
+        <tr>
+            <td colspan="2">
+                <strong>Total Amount (in words)</strong><br/>
+                <span style="text-transform: capitalize;">Ninety Eight Thousand Nine Hundred Rupees Only</span>
+            </td>
+        </tr>
+        <tr>
+            <td width="50%">
+                <div class="label">Bank Details</div>
+                <strong>Name:</strong> Vinith<br/>
+                <strong>IFSC Code:</strong> HDFC0000182<br/>
+                <strong>Account No:</strong> 123456789157950<br/>
+                <strong>Bank:</strong> HDFC Bank, MUMBAI - KANDIVALI EAST
+            </td>
+            <td width="50%">
+                <div class="label">Payment QR Code</div>
+                <div style="float: left; width: 60px; height: 60px; background: #eee; text-align: center; border: 1px solid #ccc;">
+                    <br/>QR
+                </div>
+                <div style="margin-left: 70px;">
+                    <strong>UPI ID:</strong> viniprasad1989-1@okhdfcbank<br/>
+                    <img src="https://img.icons8.com/color/48/000000/google-pay.png" width="20"/>
+                    <img src="https://img.icons8.com/color/48/000000/phone-pe.png" width="20"/>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td class="terms">
+                <strong>Terms and Conditions</strong><br/>
+                1. Goods once sold will not be taken back or exchanged.<br/>
+                2. All disputes are subject to Bangalore jurisdiction only.
+            </td>
+            <td class="signature">
+                <br/>
+                <strong>Authorised Signatory For</strong><br/>
+                Shivam Electronics
+            </td>
+        </tr>
+    </table>
+</div>
 
 </body>
 </html>

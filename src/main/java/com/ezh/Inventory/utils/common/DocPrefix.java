@@ -12,4 +12,5 @@ public enum DocPrefix {
     CUS,  // Customer
     ADJ,  // Adjustment
     APP,  // Approval
+    PRQ,  // Purchase Request
 }
