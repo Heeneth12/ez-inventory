@@ -5,5 +5,6 @@ public enum PoStatus {
     ISSUED,             // Sent to Supplier
     PARTIALLY_RECEIVED, // Received 50/100
     COMPLETED,          // Received 100/100
-    CANCELLED           // Deal off
+    CANCELLED,           // Deal off
+    PENDING
 }
