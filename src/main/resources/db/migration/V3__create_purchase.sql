@@ -8,7 +8,7 @@ CREATE TABLE purchase_request (
 
     -- Purchase request specific fields
     tenant_id BIGINT NOT NULL,
-    supplier_id BIGINT NOT NULL,
+    vendor_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
     requested_by_user_id BIGINT,
     department VARCHAR(100),

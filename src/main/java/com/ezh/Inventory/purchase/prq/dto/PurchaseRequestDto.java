@@ -15,8 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 public class PurchaseRequestDto {
     private Long id;
-    private Long supplierId;
-    private String supplierName;
+    private Long vendorId;
+    private String vendorName;
     private Long warehouseId;
     private Long requestedBy;
     private String department;
