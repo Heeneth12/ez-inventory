@@ -23,6 +23,7 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
             SELECT prq FROM PurchaseRequest prq
             WHERE prq.tenantId = :tenantId
               AND (:id IS NULL OR prq.id = :id)
+              AND (:vendorId IS NULL OR prq.vendorId = :vendorId)
               AND (:status IS NULL OR prq.status = :status)
               AND (
                     (CAST(:fromDate AS timestamp) IS NULL OR prq.createdAt >= :fromDate)
@@ -37,6 +38,7 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
     Page<PurchaseRequest> findAllPurchaseRequests(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
+            @Param("vendorId") Long vendorId,
             @Param("status") String status, // Ensure this matches your Enum or String correctly
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate,

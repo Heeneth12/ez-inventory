@@ -16,6 +16,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserContext userContext;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -38,9 +39,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
                 Long tenantId = jwtTokenProvider.getTenantIdFromToken(token);
                 String email = jwtTokenProvider.getEmailFromToken(token);
+                String userType = jwtTokenProvider.getUserTypeFromToken(token);
+                String roles = jwtTokenProvider.getRolesFromToken(token);
+
+                // Populate UserContext for use throughout the request
+                userContext.setUserId(userId);
+                userContext.setEmail(email);
+                userContext.setTenantId(tenantId);
+                userContext.setUserType(userType);
+                userContext.setRoles(roles);
 
                 // Create authentication object
-                JwtAuthentication authentication = new JwtAuthentication(userId, email, tenantId);
+                JwtAuthentication authentication = new JwtAuthentication(userId, email, tenantId, userType, roles);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {

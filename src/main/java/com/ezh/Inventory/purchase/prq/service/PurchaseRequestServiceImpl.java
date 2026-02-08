@@ -7,6 +7,7 @@ import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.entity.PurchaseRequest;
 import com.ezh.Inventory.purchase.prq.entity.PurchaseRequestItem;
 import com.ezh.Inventory.purchase.prq.repository.PurchaseRequestRepository;
+import com.ezh.Inventory.security.UserContext;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -37,6 +39,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final PurchaseRequestRepository prqRepository;
     private final AuthServiceClient authServiceClient;
     private final ItemRepository itemRepository;
+    private final UserContext userContext;
 
     @Override
     @Transactional
@@ -141,11 +144,18 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Transactional(readOnly = true)
     public Page<PurchaseRequestDto> getAllPrqs(Integer page, Integer size, CommonFilter filter) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Long vendorId = null;
+        if (Objects.equals(userContext.getUserType(), "VENDOR")) {
+            vendorId = userContext.getUserId();
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         // Assuming you add a custom query in Repository, or use standard findAll
         Page<PurchaseRequest> prqPage = prqRepository.findAllPurchaseRequests(
                 tenantId,
                 filter.getId(),
+                vendorId,
                 filter.getStatus(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),

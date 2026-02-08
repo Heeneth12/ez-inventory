@@ -116,6 +116,14 @@ public class JwtTokenProvider {
         }
     }
 
+    public String getUserTypeFromToken(String token) {
+        return getClaims(token).get("userType", String.class);
+    }
+
+    public String getRolesFromToken(String token) {
+        return getClaims(token).get("roles", String.class);
+    }
+
     private Claims getClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
