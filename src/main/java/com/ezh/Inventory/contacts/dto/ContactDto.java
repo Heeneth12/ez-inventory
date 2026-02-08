@@ -23,5 +23,6 @@ public class ContactDto {
     private Integer creditDays;
     private ContactType type;// VENDOR / CUSTOMER / BOTH
     private Boolean active;
+    private Long connectedTenantId;
     private List<AddressDto> addresses;
 }

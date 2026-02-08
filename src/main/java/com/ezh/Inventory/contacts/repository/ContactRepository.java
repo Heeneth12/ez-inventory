@@ -19,6 +19,7 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
     @Query("SELECT c.name FROM Contact c WHERE c.id = :id")
     String findNameById(@Param("id") Long id);
 
+    Optional<Contact> findByTenantIdAndConnectedTenantId(Long tenantId, Long partnerTenantId);
 
     Optional<Contact> findByIdAndTenantId(Long id, Long tenantId);
 

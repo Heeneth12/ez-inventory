@@ -3,6 +3,7 @@ package com.ezh.Inventory.contacts.service;
 import com.ezh.Inventory.contacts.dto.*;
 import com.ezh.Inventory.contacts.entiry.Address;
 import com.ezh.Inventory.contacts.entiry.Contact;
+import com.ezh.Inventory.contacts.entiry.ContactType;
 import com.ezh.Inventory.contacts.entiry.NetworkRequest;
 import com.ezh.Inventory.contacts.entiry.NetworkStatus;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
@@ -27,10 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.ezh.Inventory.utils.UserContextUtil.getTenantIdOrThrow;
@@ -51,7 +49,6 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional
     public CommonResponse createContact(ContactDto contactDto) throws CommonException {
-        log.info("");
         if (repository.existsByContactCode(contactDto.getContactCode())) {
             throw new BadRequestException("Contact code already exists");
         }
@@ -90,7 +87,6 @@ public class ContactServiceImpl implements ContactService {
                 .build();
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public ContactDto getContact(Long id) throws CommonException {
@@ -103,7 +99,6 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional(readOnly = true)
     public Page<ContactDto> getAllContacts(ContactFilter contactFilter, Integer page, Integer size) {
-        log.info("get all");
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         Page<Contact> contacts = repository.searchContacts(
                 getTenantIdOrThrow(),
@@ -116,11 +111,8 @@ public class ContactServiceImpl implements ContactService {
                 contactFilter.getActive(),
                 pageable
         );
-        //Page<Contact> contacts = repository.findAll(pageable);
         return contacts.map(this::convertToDTO);
     }
-
-
 
     @Override
     @Transactional
@@ -139,13 +131,9 @@ public class ContactServiceImpl implements ContactService {
                 .build();
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public List<ContactDto> searchContact(ContactFilter contactFilter) throws CommonException {
-
-        log.info("Searching contacts without pagination");
-
         Pageable pageable = Pageable.unpaged();
 
         Page<Contact> contacts = repository.searchContacts(
@@ -169,7 +157,6 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional(readOnly = true)
     public List<TenantDto> getMyNetwork() throws CommonException {
-
         Long myTenantId = getTenantIdOrThrow();
         String authToken = request.getHeader("Authorization");
         List<NetworkRequest> connections = networkRepository.findAllConnections(myTenantId, NetworkStatus.CONNECTED);
@@ -188,11 +175,26 @@ public class ContactServiceImpl implements ContactService {
     @Override
     @Transactional
     public CommonResponse<?> updateNetworkStatus(Long id, NetworkStatus status) throws CommonException {
-        NetworkRequest request = networkRepository.findById(id)
+        NetworkRequest netRequest = networkRepository.findById(id)
                 .orElseThrow(() -> new BadRequestException("Network request not found"));
 
-        request.setStatus(status);
-        networkRepository.save(request);
+        Long currentTenantId = getTenantIdOrThrow();
+
+        // 1. Security Check
+        if (!netRequest.getReceiverTenantId().equals(currentTenantId)) {
+            if(status == NetworkStatus.CONNECTED) {
+                throw new BadRequestException("Only the receiver can accept this request.");
+            }
+        }
+
+        netRequest.setStatus(status);
+        networkRepository.save(netRequest);
+
+        // 2. If Accepted -> Create Links for BOTH Sender and Receiver
+        if (status == NetworkStatus.CONNECTED) {
+            String authToken = request.getHeader("Authorization");
+            createReciprocalContacts(netRequest, authToken);
+        }
 
         return CommonResponse.builder()
                 .message("Status updated to " + status)
@@ -200,37 +202,96 @@ public class ContactServiceImpl implements ContactService {
                 .build();
     }
 
+    /**
+     * Creates two contact records:
+     * 1. In Receiver's Book -> Containing Sender's Info
+     * 2. In Sender's Book -> Containing Receiver's Info
+     */
+    private void createReciprocalContacts(NetworkRequest req, String authToken) {
+        Long senderId = req.getSenderTenantId();
+        Long receiverId = req.getReceiverTenantId();
+
+        // --- Step 1: Fetch Live Details for BOTH Tenants ---
+        // We fetch both IDs at once to save network calls
+        List<TenantDto> tenantDetails = fetchLiveTenantDetails(List.of(senderId, receiverId), authToken);
+
+        // Map them for easy lookup
+        Map<Long, TenantDto> detailsMap = tenantDetails.stream()
+                .collect(Collectors.toMap(TenantDto::getId, dto -> dto));
+
+        TenantDto senderInfo = detailsMap.get(senderId);
+        TenantDto receiverInfo = detailsMap.get(receiverId);
+
+        // --- Step 2: Create Contact for RECEIVER (The one who accepted) ---
+        // They need to see the SENDER
+        createSingleSideContact(receiverId, senderId, req, senderInfo);
+
+        // --- Step 3: Create Contact for SENDER (The one who asked) ---
+        // They need to see the RECEIVER
+        createSingleSideContact(senderId, receiverId, req, receiverInfo);
+    }
+
+    private void createSingleSideContact(Long hostTenantId, Long partnerTenantId, NetworkRequest req, TenantDto partnerInfo) {
+        // Check if link already exists in this host's book
+        if (repository.findByTenantIdAndConnectedTenantId(hostTenantId, partnerTenantId).isPresent()) {
+            return;
+        }
+        // Determine Name and Email (Live > Request > Fallback)
+        String name = (partnerInfo != null && partnerInfo.getTenantName() != null)
+                ? partnerInfo.getTenantName()
+                : "Linked Partner " + partnerTenantId;
+
+        String email = (partnerInfo != null && partnerInfo.getEmail() != null)
+                ? partnerInfo.getEmail()
+                : "network-" + partnerTenantId + "@placeholder.com";
+
+        String phone = (partnerInfo != null) ? partnerInfo.getPhone() : null;
+
+        Contact contact = Contact.builder()
+                .tenantId(hostTenantId)           // <--- Created IN this tenant's scope
+                .connectedTenantId(partnerTenantId) // <--- Pointing TO this partner
+                .networkRequest(req)
+                .contactCode("NET-" + partnerTenantId + "-" + UUID.randomUUID().toString().substring(0,4))
+                .name(name)
+                .email(email)
+                .phone(phone)
+                .contactType(ContactType.BOTH)     // Usually B2B partners are BOTH
+                .active(true)
+                .creditDays(30)
+                .build();
+
+        repository.save(contact);
+        log.info("Created Seamless Contact in Tenant {} for Partner {}", hostTenantId, partnerTenantId);
+    }
+
     @Override
     @Transactional
     public CommonResponse<?> sendNetworkRequest(NetworkRequestDto dto) throws CommonException {
         Long myTenantId = getTenantIdOrThrow();
 
-        // 1. Validation: Prevent sending a request to yourself
         if (myTenantId.equals(dto.getReceiverTenantId())) {
             throw new BadRequestException("You cannot send a trade request to your own company.");
         }
 
-        // 2. Validation: Check if a request already exists between these two tenants
         boolean exists = networkRepository.existsConnection(myTenantId, dto.getReceiverTenantId());
         if (exists) {
             throw new BadRequestException("A network request or connection already exists with this tenant.");
         }
 
-        // 3. Create the Request
-        NetworkRequest request = NetworkRequest.builder()
+        NetworkRequest req = NetworkRequest.builder()
                 .senderTenantId(myTenantId)
                 .receiverTenantId(dto.getReceiverTenantId())
-                .senderBusinessName(dto.getSenderBusinessName()) // This helps the receiver identify you
+                .senderBusinessName(dto.getSenderBusinessName())
                 .message(dto.getMessage())
                 .status(NetworkStatus.PENDING)
                 .build();
 
-        networkRepository.save(request);
+        networkRepository.save(req);
 
         return CommonResponse.builder()
                 .message("Trade request sent successfully")
                 .status(Status.SUCCESS)
-                .id(String.valueOf(request.getId()))
+                .id(String.valueOf(req.getId()))
                 .build();
     }
 
@@ -238,14 +299,10 @@ public class ContactServiceImpl implements ContactService {
     @Transactional(readOnly = true)
     public List<NetworkRequest> getIncomingRequests() throws CommonException {
         Long myTenantId = getTenantIdOrThrow();
-
-        // Fetch only PENDING requests where the current user is the RECEIVER
         return networkRepository.findByReceiverTenantIdAndStatus(myTenantId, NetworkStatus.PENDING);
     }
 
-
     private Contact convertToEntity(ContactDto dto) {
-
         Contact contact = Contact.builder()
                 .tenantId(getTenantIdOrThrow())
                 .contactCode(dto.getContactCode())
@@ -291,7 +348,9 @@ public class ContactServiceImpl implements ContactService {
                 .creditDays(contact.getCreditDays())
                 .gstNumber(contact.getGstNumber())
                 .type(contact.getContactType())
-                .active(contact.getActive());
+                .active(contact.getActive())
+                // New field for frontend to know this is a Network Contact
+                .connectedTenantId(contact.getConnectedTenantId());
 
         if (contact.getAddresses() != null && !contact.getAddresses().isEmpty()) {
             List<AddressDto> addressDtos = contact.getAddresses()
@@ -316,33 +375,23 @@ public class ContactServiceImpl implements ContactService {
         return builder.build();
     }
 
-    /**
-     * Helper to fetch Tenant details from Auth Service and return as DTO list
-     */
     private List<TenantDto> fetchLiveTenantDetails(List<Long> tenantIds, String token) {
         try {
-
-            HttpHeaders  headers = new HttpHeaders();
+            HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(token.replace("Bearer ", ""));
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
 
-            // 2. Wrap into HttpEntity (For GET, the body is null)
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             String idsParam = tenantIds.stream()
                     .map(String::valueOf)
                     .collect(Collectors.joining(","));
             String url = authServiceUrl + "/api/v1/tenant/bulk?ids=" + idsParam;
-            log.info("Calling Auth Service URL: {}", url);
+
             ParameterizedTypeReference<ExternalApiResponse<Map<Long, TenantDto>>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ExternalApiResponse<Map<Long, TenantDto>>> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.GET,
-                            entity,
-                            responseType
-                    );
+                    restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
 
             if (response.getBody() != null && response.getBody().getData() != null) {
                 return new ArrayList<>(response.getBody().getData().values());
@@ -352,17 +401,4 @@ public class ContactServiceImpl implements ContactService {
         }
         return Collections.emptyList();
     }
-
-    private TenantDto mapToTenantDto(Map<String, Object> data) {
-        return TenantDto.builder()
-                .id(Long.valueOf(data.get("id").toString()))
-                .tenantUuid((String) data.get("tenantUuid"))
-                .tenantName((String) data.get("tenantName"))
-                .tenantCode((String) data.get("tenantCode"))
-                .email((String) data.get("email"))
-                .phone((String) data.get("phone"))
-                .isActive((Boolean) data.get("isActive"))
-                .build();
-    }
-
 }

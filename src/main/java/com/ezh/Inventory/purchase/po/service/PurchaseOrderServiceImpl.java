@@ -60,7 +60,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .orderNumber("PO-" + System.currentTimeMillis()) // Replace with sequence generator
                 .orderDate(System.currentTimeMillis())
                 .expectedDeliveryDate(dto.getExpectedDeliveryDate())
-                .poStatus(dto.getStatus() != null ? dto.getStatus() : PoStatus.ISSUED)
+                .poStatus(dto.getStatus() != null ? dto.getStatus() : PoStatus.PENDING)
                 .notes(dto.getNotes())
                 .build();
 

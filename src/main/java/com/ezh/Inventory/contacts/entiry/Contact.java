@@ -36,6 +36,17 @@ public class Contact extends CommonSerializable {
 
     private Boolean active;
 
+    @Column(name = "connected_tenant_id")
+    private Long connectedTenantId;
+
+    /**
+     * Links to the accepted network request that established this connection.
+     * FetchType.LAZY is recommended to avoid loading this heavy object unless needed.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "network_request_id")
+    private NetworkRequest networkRequest;
+
     @OneToMany(mappedBy = "contact", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Address> addresses = new ArrayList<>();

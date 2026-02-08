@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -173,7 +174,7 @@ public class StockServiceImpl implements StockService {
     @Transactional(readOnly = true)
     public Page<StockLedgerDto> getStockTransactions(StockFilterDto filterDto, Integer page, Integer size) throws CommonException {
         Long tenantId = getTenantIdOrThrow();
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<StockLedger> stockLedger = stockLedgerRepository.findByTenantId(tenantId, pageable);
         return stockLedger.map(this::convertToDTO);
     }

@@ -13,7 +13,13 @@ CREATE TABLE contact (
     gst_number VARCHAR(50),
     contact_type VARCHAR(50),
     credit_days INTEGER,
+    connected_tenant_id BIGINT,
+    network_request_id BIGINT,
     active BOOLEAN DEFAULT true
+    CONSTRAINT fk_contact_network_request
+            FOREIGN KEY (network_request_id)
+            REFERENCES network_requests(id)
+            ON DELETE SET NULL
 );
 
 -- Create address table
@@ -51,6 +57,9 @@ CREATE INDEX idx_address_type ON address(address_type);
 CREATE INDEX idx_address_city ON address(city);
 CREATE INDEX idx_address_state ON address(state);
 CREATE INDEX idx_address_pin_code ON address(pin_code);
+
+CREATE INDEX idx_contact_connected_tenant ON contact(connected_tenant_id);
+CREATE INDEX idx_contact_tenant_connected_lookup ON contact(tenant_id, connected_tenant_id);
 
 -- Add comments
 COMMENT ON TABLE contact IS 'Stores contact information for customers, suppliers, etc.';
