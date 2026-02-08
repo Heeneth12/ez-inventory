@@ -1,7 +1,6 @@
 package com.ezh.Inventory.purchase.prq.service;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
-import com.ezh.Inventory.contacts.repository.ContactRepository;
+import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestItemDto;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
@@ -13,6 +12,7 @@ import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,7 +35,8 @@ import java.util.stream.Collectors;
 public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     private final PurchaseRequestRepository prqRepository;
-    private final ContactRepository contactRepository;
+    private final AuthServiceClient authServiceClient;
+    private final ItemRepository itemRepository;
 
     @Override
     @Transactional
@@ -43,7 +46,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // 1. Map DTO to Entity Header
         PurchaseRequest prq = PurchaseRequest.builder()
                 .tenantId(tenantId)
-                .supplierId(dto.getSupplierId())
+                .vendorId(dto.getVendorId())
                 .warehouseId(dto.getWarehouseId())
                 .requestedBy(dto.getRequestedBy())
                 .department(dto.getDepartment())
@@ -183,10 +186,18 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
 
     private PurchaseRequestDto mapToDto(PurchaseRequest prq) {
+        Set<Long> ids = prq.getItems().stream().map(PurchaseRequestItem::getItemId).collect(Collectors.toSet());
+
+        Map<Long, String> items = itemRepository
+                .findByIdIn(ids.stream().toList())
+                .stream()
+                .map(item -> Map.entry(item.getId(), item.getName()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
         return PurchaseRequestDto.builder()
                 .id(prq.getId())
-                .supplierId(prq.getSupplierId())
-                .supplierName(getSupplierName(prq.getSupplierId()))
+                .vendorId(prq.getVendorId())
+                .vendorName(getSupplierName(prq.getVendorId()))
                 .warehouseId(prq.getWarehouseId())
                 .requestedBy(prq.getRequestedBy())
                 .department(prq.getDepartment())
@@ -199,6 +210,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                         PurchaseRequestItemDto.builder()
                                 .Id(item.getId())
                                 .itemId(item.getItemId())
+                                .itemName(items.get(item.getItemId()) != null ? items.get(item.getItemId()) : "Unknown Item")
                                 .requestedQty(item.getRequestedQty())
                                 .estimatedUnitPrice(item.getEstimatedUnitPrice())
                                 .lineTotal(item.getLineTotal())
@@ -210,9 +222,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     private String getSupplierName(Long id) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
-        Contact contact = contactRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new CommonException("contact not found", HttpStatus.NOT_FOUND));
 
-        return contact.getName();
+        return authServiceClient.getUserDetailsById(id).getFullName();
     }
 }

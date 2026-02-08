@@ -4,7 +4,7 @@ package com.ezh.Inventory.contacts.controller;
 import com.ezh.Inventory.contacts.dto.ContactDto;
 import com.ezh.Inventory.contacts.dto.ContactFilter;
 import com.ezh.Inventory.contacts.dto.NetworkRequestDto;
-import com.ezh.Inventory.contacts.dto.TenantDto;
+import com.ezh.Inventory.utils.common.dto.TenantDto;
 import com.ezh.Inventory.contacts.entiry.NetworkRequest;
 import com.ezh.Inventory.contacts.entiry.NetworkStatus;
 import com.ezh.Inventory.contacts.service.ContactService;

@@ -20,8 +20,8 @@ public class PurchaseRequest extends CommonSerializable {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
-    @Column(name = "supplier_id", nullable = false)
-    private Long supplierId;
+    @Column(name = "vendor_id", nullable = false)
+    private Long vendorId;
 
     @Column(name = "warehouse_id", nullable = false)
     private Long warehouseId;

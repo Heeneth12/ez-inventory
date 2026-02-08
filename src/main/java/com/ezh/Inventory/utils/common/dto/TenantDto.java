@@ -1,4 +1,4 @@
-package com.ezh.Inventory.contacts.dto;
+package com.ezh.Inventory.utils.common.dto;
 
 
 import lombok.*;
