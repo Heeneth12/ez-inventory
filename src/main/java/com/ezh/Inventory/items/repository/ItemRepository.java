@@ -23,6 +23,7 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     List<Item> findIdAndNameByIdIn(@Param("ids") List<Long> ids);
 
     Optional<Item> findByIdAndTenantId(Long id, Long tenantId);
+
     Page<Item> findAllByTenantId(Long tenantId, Pageable pageable);
 
     @Query("SELECT i.name FROM Item i WHERE i.id = :id")
@@ -49,19 +50,21 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
 
     @Query("""
             SELECT i FROM Item i 
-            WHERE 
-            (:searchQuery IS NULL OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchQuery, '%')) 
-             OR LOWER(i.itemCode) LIKE LOWER(CONCAT('%', :searchQuery, '%')) 
-             OR LOWER(i.barcode) LIKE LOWER(CONCAT('%', :searchQuery, '%'))) 
+            WHERE i.tenantId = :tenantId
+            AND (:searchQuery IS NULL OR 
+                LOWER(i.name) LIKE LOWER(CAST(CONCAT('%', :searchQuery, '%') AS text)) OR 
+                LOWER(i.itemCode) LIKE LOWER(CAST(CONCAT('%', :searchQuery, '%') AS text)) OR 
+                LOWER(i.barcode) LIKE LOWER(CAST(CONCAT('%', :searchQuery, '%') AS text))) 
             AND (:active IS NULL OR i.isActive = :active) 
-            AND (:itemType IS NULL OR i.itemType = :itemType) 
-            AND (:brand IS NULL OR LOWER(i.brand) LIKE LOWER(CONCAT('%', :brand, '%'))) 
-            AND (:category IS NULL OR LOWER(i.category) LIKE LOWER(CONCAT('%', :category, '%')))
+            AND (CAST(:itemTypes AS text) IS NULL OR i.itemType IN :itemTypes)
+            AND (:brand IS NULL OR LOWER(i.brand) LIKE LOWER(CAST(CONCAT('%', :brand, '%') AS text))) 
+            AND (:category IS NULL OR LOWER(i.category) LIKE LOWER(CAST(CONCAT('%', :category, '%') AS text)))
             """)
     Page<Item> searchItems(
+            @Param("tenantId") Long tenantId,
             @Param("searchQuery") String searchQuery,
             @Param("active") Boolean active,
-            @Param("itemType") ItemType itemType,
+            @Param("itemTypes") List<ItemType> itemTypes,
             @Param("brand") String brand,
             @Param("category") String category,
             Pageable pageable

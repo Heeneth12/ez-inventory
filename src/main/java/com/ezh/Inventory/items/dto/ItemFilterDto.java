@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -13,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class ItemFilterDto {
     String searchQuery;
     Boolean active;
-    ItemType itemType;
+    List<ItemType> itemTypes;
     String brand;
     String category;
 }

@@ -3,6 +3,7 @@ package com.ezh.Inventory.items.service;
 import com.ezh.Inventory.items.dto.ItemDto;
 import com.ezh.Inventory.items.dto.ItemFilterDto;
 import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.items.entity.ItemType;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.items.utils.ItemExcelUtils;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -83,18 +84,21 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public Page<ItemDto> getAllItems(Integer page, Integer size, ItemFilterDto itemFilterDto) throws CommonException {
-        log.info("Fetching all items");
         Pageable pageable = PageRequest.of(page, size);
+        Long tenantId = getTenantIdOrThrow();
 
-//        Page<Item> itemsPage = itemRepository.searchItems(
-//                itemFilterDto.getSearchQuery(),
-//                itemFilterDto.getActive(),
-//                itemFilterDto.getItemType(),
-//                itemFilterDto.getBrand(),
-//                itemFilterDto.getCategory(),
-//                pageable);
-        Page<Item> itemsPage = itemRepository.findAllByTenantId(getTenantIdOrThrow(), pageable);
-
+        List<ItemType> types = (itemFilterDto.getItemTypes() != null && !itemFilterDto.getItemTypes().isEmpty())
+                ? itemFilterDto.getItemTypes()
+                : null;
+        // The logic remains clean now without the duplicate assignment
+        Page<Item> itemsPage = itemRepository.searchItems(
+                tenantId,
+                itemFilterDto.getSearchQuery(),
+                itemFilterDto.getActive(),
+                types,
+                itemFilterDto.getBrand(),
+                itemFilterDto.getCategory(),
+                pageable);
         return itemsPage.map(this::convertToDto);
     }
 
