@@ -1,9 +1,7 @@
 package com.ezh.Inventory.approval.controller;
 
 
-import com.ezh.Inventory.approval.dto.ApprovalActionDto;
-import com.ezh.Inventory.approval.dto.ApprovalConfigDto;
-import com.ezh.Inventory.approval.dto.ApprovalRequestDto;
+import com.ezh.Inventory.approval.dto.*;
 import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -26,10 +24,11 @@ public class ApprovalController {
 
 
     @PostMapping(value = "/all", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<ApprovalRequestDto>> getAllApprovals(@RequestParam(defaultValue = "0") Integer page,
+    public ResponseResource<Page<ApprovalRequestDto>> getAllApprovals(@RequestBody ApprovalFilter approvalFilter,
+                                                                      @RequestParam(defaultValue = "0") Integer page,
                                                                       @RequestParam(defaultValue = "10") Integer size) throws CommonException {
         log.info("Fetching approvals page={} size={}", page, size);
-        Page<ApprovalRequestDto> response = approvalService.getAllApprovals(page, size);
+        Page<ApprovalRequestDto> response = approvalService.getAllApprovals(page, size, approvalFilter);
         return ResponseResource.success(HttpStatus.OK, response, "Approvals fetched successfully");
     }
 
@@ -72,4 +71,10 @@ public class ApprovalController {
         return ResponseResource.success(HttpStatus.OK, response, "Approval config fetched successfully");
     }
 
+    @GetMapping(value = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<ApprovalStatsDto> getApprovalStatistics() throws CommonException {
+        log.info("Fetching approval Statistics");
+        ApprovalStatsDto response = approvalService.getStats();
+        return ResponseResource.success(HttpStatus.OK, response, "Approval request fetched successfully");
+    }
 }

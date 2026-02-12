@@ -1,12 +1,11 @@
 package com.ezh.Inventory.approval.service;
 
-import com.ezh.Inventory.approval.dto.ApprovalActionDto;
-import com.ezh.Inventory.approval.dto.ApprovalCheckContext;
-import com.ezh.Inventory.approval.dto.ApprovalConfigDto;
-import com.ezh.Inventory.approval.dto.ApprovalRequestDto;
+import com.ezh.Inventory.approval.dto.*;
 import com.ezh.Inventory.approval.entity.*;
 import com.ezh.Inventory.approval.repository.ApprovalConfigRepository;
 import com.ezh.Inventory.approval.repository.ApprovalRequestRepository;
+import com.ezh.Inventory.notifications.entity.NotificationType;
+import com.ezh.Inventory.notifications.service.NotificationService;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
@@ -26,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -35,6 +35,7 @@ public class ApprovalService {
     private final ApprovalConfigRepository approvalConfigRepository;
     private final ApprovalRequestRepository approvalRequestRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     @Transactional
     public CommonResponse<?> checkAndInitiateApproval(ApprovalCheckContext context) {
@@ -95,9 +96,14 @@ public class ApprovalService {
 
         // 3. If Rule Broken -> Create Request
         if (approvalNeeded) {
-
             ApprovalRequest approvalRequest = createRequest(context, reason);
-
+            String notifTitle = String.format("Approval Pending: #%s",
+                    approvalRequest.getApprovalRequestNumber());
+            String notifBody = String.format("A request for %s (%s) requires approval. Reason: %s",
+                    approvalRequest.getApprovalType(),
+                    approvalRequest.getReferenceCode(),
+                    approvalRequest.getDescription());
+            notificationService.sendToApp(notifTitle, notifBody, NotificationType.INFO);
             return CommonResponse.builder()
                     .data(ApprovalResultStatus.APPROVAL_REQUIRED)
                     .id(approvalRequest.getId().toString())
@@ -115,7 +121,7 @@ public class ApprovalService {
      * ACTION LOGIC: Admin Approves or Rejects a request.
      */
     @Transactional
-    public CommonResponse<?> processDecision(ApprovalActionDto actionDto) throws CommonException{
+    public CommonResponse<?> processDecision(ApprovalActionDto actionDto) throws CommonException {
 
         // 1. Fetch the Request
         ApprovalRequest request = approvalRequestRepository.findById(actionDto.getRequestId())
@@ -159,18 +165,36 @@ public class ApprovalService {
         return toDto(approvalRequest);
     }
 
-
     @Transactional(readOnly = true)
-    public Page<ApprovalRequestDto> getAllApprovals(Integer page, Integer size) throws CommonException {
+    public Page<ApprovalRequestDto> getAllApprovals(Integer page, Integer size, ApprovalFilter filter) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<ApprovalRequest> approvalRequests =
-                approvalRequestRepository.findByTenantId(tenantId, pageable);
+        // Sanitize Lists: Convert empty lists to null so the JPQL "IS NULL" check works
+        List<ApprovalType> types = (filter.getApprovalTypes() != null && !filter.getApprovalTypes().isEmpty())
+                ? filter.getApprovalTypes() : null;
+
+        List<ApprovalStatus> statuses = (filter.getApprovalStatuses() != null && !filter.getApprovalStatuses().isEmpty())
+                ? filter.getApprovalStatuses() : null;
+
+        Page<ApprovalRequest> approvalRequests = approvalRequestRepository.searchApprovals(
+                tenantId,
+                types,
+                statuses,
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
+                pageable
+        );
 
         return approvalRequests.map(ApprovalService::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public ApprovalStatsDto getStats() throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        return approvalRequestRepository.getApprovalStatistics(tenantId);
     }
 
 
