@@ -14,14 +14,21 @@ import java.util.List;
 @NoArgsConstructor
 public class PurchaseOrderDto {
     private Long id;
-    private Long supplierId;
-    private String supplierName;
+    private Long prqId;
+    private Long vendorId;
+    private String vendorName;
     private Long warehouseId;
     private String orderNumber;
+    private Long orderDate;
     private Long expectedDeliveryDate;
     private PoStatus status;
     private String notes;
+    private BigDecimal flatDiscount;
+    private BigDecimal flatTax;
     private BigDecimal totalAmount;
+    private BigDecimal totalDiscount;
+    private BigDecimal totalTax;
+    private BigDecimal grandTotal;
     private Date createdAt;
     private List<PurchaseOrderItemDto> items;
 }

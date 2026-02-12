@@ -15,4 +15,6 @@ public class PurchaseOrderItemDto {
     private String itemName;
     private Integer orderedQty;
     private BigDecimal unitPrice;
+    private BigDecimal discount;
+    private BigDecimal tax;
 }

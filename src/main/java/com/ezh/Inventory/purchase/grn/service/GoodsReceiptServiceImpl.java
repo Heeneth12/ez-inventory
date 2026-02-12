@@ -209,8 +209,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         return GrnDto.builder()
                 .id(grn.getId())
-                .supplierId(purchaseOrder.getSupplierId())
-                .supplierName(purchaseOrder.getSupplierName())
+                .supplierId(purchaseOrder.getVendorId())
+                .supplierName("test")
                 .grnNumber(grn.getGrnNumber())
                 .purchaseOrderId(grn.getPurchaseOrderId())
                 .supplierInvoiceNo(grn.getSupplierInvoiceNo())

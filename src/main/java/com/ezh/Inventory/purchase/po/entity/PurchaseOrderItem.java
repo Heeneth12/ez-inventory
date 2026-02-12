@@ -32,6 +32,14 @@ public class PurchaseOrderItem extends CommonSerializable {
     @Column(name = "unit_price", precision = 18, scale = 2)
     private BigDecimal unitPrice;
 
+    @Builder.Default
+    @Column(name = "discount")
+    private BigDecimal discount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "tax")
+    private BigDecimal tax = BigDecimal.ZERO;
+
     @Column(name = "line_total", precision = 18, scale = 2)
     private BigDecimal lineTotal; // orderedQty * unitPrice
 }

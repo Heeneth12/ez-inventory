@@ -22,7 +22,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     WHERE po.tenantId = :tenantId
       AND (:id IS NULL OR po.id = :id)
       AND (:status IS NULL OR po.poStatus = :status)
-      AND (:supplierId IS NULL OR po.supplierId = :supplierId)
+      AND (:vendorId IS NULL OR po.vendorId = :vendorId)
       AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)
       AND (
             (CAST(:fromDate AS timestamp) IS NULL OR po.createdAt >= :fromDate)
@@ -31,14 +31,13 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
       AND (
             CAST(:searchQuery AS string) IS NULL
             OR LOWER(po.orderNumber) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
-            OR LOWER(po.supplierName) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
           )
     """)
     Page<PurchaseOrder> findAllPurchaseOrders(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
             @Param("status") PoStatus status,
-            @Param("supplierId") Long supplierId,
+            @Param("vendorId") Long vendorId,
             @Param("warehouseId") Long warehouseId,
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate, // Changed to LocalDateTime

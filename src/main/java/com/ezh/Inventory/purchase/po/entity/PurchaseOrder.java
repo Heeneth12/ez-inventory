@@ -18,11 +18,8 @@ public class PurchaseOrder extends CommonSerializable {
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
-    @Column(name = "supplier_id", nullable = false)
-    private Long supplierId;
-
-    @Column(name = "supplier_name", nullable = false)
-    private String supplierName;
+    @Column(name = "vendor_id", nullable = false)
+    private Long vendorId;
 
     @Column(name = "warehouse_id", nullable = false)
     private Long warehouseId;
@@ -39,10 +36,26 @@ public class PurchaseOrder extends CommonSerializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "po_status", length = 50)
     private PoStatus poStatus;
-    // DRAFT, ISSUED, PARTIALLY_RECEIVED, COMPLETED, CANCELLED
+
+    @Column(name = "flat_discount")
+    private BigDecimal flatDiscount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "flat_tax")
+    private BigDecimal flatTax = BigDecimal.ZERO;
+
+    @Column(name = "total_discount")
+    private BigDecimal totalDiscount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "total_tax")
+    private BigDecimal totalTax = BigDecimal.ZERO;
 
     @Column(name = "total_amount", precision = 18, scale = 2)
     private BigDecimal totalAmount;
+
+    @Column(name = "grand_total", precision = 18, scale = 2)
+    private BigDecimal grandTotal;
 
     @Column(name = "notes")
     private String notes;

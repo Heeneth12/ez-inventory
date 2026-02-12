@@ -13,4 +13,5 @@ public enum DocPrefix {
     ADJ,  // Adjustment
     APP,  // Approval
     PRQ,  // Purchase Request
+    PO,
 }

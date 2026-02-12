@@ -61,14 +61,18 @@ CREATE TABLE purchase_order (
 
     -- Purchase order specific fields
     tenant_id BIGINT NOT NULL,
-    supplier_id BIGINT NOT NULL,
-    supplier_name VARCHAR(255) NOT NULL,
+    vendor_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
     order_number VARCHAR(100) UNIQUE NOT NULL,
     order_date BIGINT,
     expected_delivery_date BIGINT,
     po_status VARCHAR(50),
     total_amount DECIMAL(18, 2),
+    flat_discount DECIMAL(18, 2) DEFAULT 0,
+    flat_tax DECIMAL(18, 2) DEFAULT 0,
+    total_discount DECIMAL(18, 2) DEFAULT 0,
+    total_tax DECIMAL(18, 2) DEFAULT 0,
+    grand_total DECIMAL(18, 2) DEFAULT 0;
     notes TEXT
 );
 
@@ -85,6 +89,8 @@ CREATE TABLE purchase_order_item (
     item_id BIGINT NOT NULL,
     ordered_qty INTEGER NOT NULL,
     received_qty INTEGER NOT NULL DEFAULT 0,
+    discount DECIMAL(18, 2) DEFAULT 0,
+    tax DECIMAL(18, 2) DEFAULT 0;
     unit_price DECIMAL(18, 2),
     line_total DECIMAL(18, 2),
 
