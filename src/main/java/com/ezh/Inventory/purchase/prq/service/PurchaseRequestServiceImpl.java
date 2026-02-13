@@ -46,6 +46,11 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     public CommonResponse<?> createPrq(PurchaseRequestDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
+        PrqStatus status =
+                PrqStatus.DRAFT.equals(dto.getStatus())
+                        ? PrqStatus.DRAFT
+                        : PrqStatus.PENDING;
+
         // 1. Map DTO to Entity Header
         PurchaseRequest prq = PurchaseRequest.builder()
                 .tenantId(tenantId)
@@ -54,7 +59,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .requestedBy(dto.getRequestedBy())
                 .department(dto.getDepartment())
                 .prqNumber(DocumentNumberUtil.generate(DocPrefix.PRQ))
-                .status(PrqStatus.PENDING)
+                .status(status)
                 .notes(dto.getNotes())
                 .build();
 
@@ -98,14 +103,20 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .orElseThrow(() -> new CommonException("Purchase Request not found", HttpStatus.NOT_FOUND));
 
         // 2. Validation: Only allow updates if still PENDING
-        if (prq.getStatus() != PrqStatus.PENDING) {
-            throw new CommonException("Only PENDING requests can be edited", HttpStatus.BAD_REQUEST);
+        PrqStatus status = prq.getStatus();
+
+        if (!(status == PrqStatus.DRAFT || status == PrqStatus.PENDING)) {
+            throw new CommonException(
+                    "Only DRAFT or PENDING requests can be edited",
+                    HttpStatus.BAD_REQUEST
+            );
         }
 
         // 3. Update Header Fields
         prq.setRequestedBy(dto.getRequestedBy());
         prq.setDepartment(dto.getDepartment());
         prq.setNotes(dto.getNotes());
+        prq.setStatus(PrqStatus.PENDING);
 
         // 4. Update Items (Clear and Re-add)
         // Because orphanRemoval = true is set on the entity,
