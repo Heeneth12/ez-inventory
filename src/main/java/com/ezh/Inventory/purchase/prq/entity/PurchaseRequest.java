@@ -49,6 +49,9 @@ public class PurchaseRequest extends CommonSerializable {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "created_by")
+    protected Long createdBy;
+
     // One-to-Many Relationship
     @OneToMany(mappedBy = "purchaseRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
