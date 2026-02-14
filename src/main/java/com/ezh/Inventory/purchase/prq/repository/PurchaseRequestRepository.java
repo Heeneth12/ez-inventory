@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -24,7 +25,7 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
             WHERE prq.tenantId = :tenantId
               AND (:id IS NULL OR prq.id = :id)
               AND (:vendorId IS NULL OR prq.vendorId = :vendorId)
-              AND (:status IS NULL OR prq.status = :status)
+              AND (:statuses IS NULL OR prq.status IN :statuses)
               AND (
                     (CAST(:fromDate AS timestamp) IS NULL OR prq.createdAt >= :fromDate)
                     AND (CAST(:toDate AS timestamp) IS NULL OR prq.createdAt <= :toDate)
@@ -39,7 +40,7 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
             @Param("vendorId") Long vendorId,
-            @Param("status") String status, // Ensure this matches your Enum or String correctly
+            @Param("statuses") List<String> statuses, // Ensure this matches your Enum or String correctly
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,

@@ -9,6 +9,7 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -18,7 +19,7 @@ import java.time.LocalTime;
 public class CommonFilter {
     private Long id;
     private String searchQuery;
-    private String status;
+    private List<String> statuses;
     private Long warehouseId;
     private LocalDate fromDate;
     private LocalDate toDate;

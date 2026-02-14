@@ -28,9 +28,6 @@ public abstract class CommonSerializable implements Serializable {
     @Column(name = "created_at", nullable = false, updatable = false)
     protected Date createdAt;
 
-    @Column(name = "created_by")
-    protected Long createdBy;
-
     @UpdateTimestamp
     @Column(name = "updated_at")
     protected Date updatedAt;

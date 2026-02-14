@@ -45,7 +45,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Override
     @Transactional
     public CommonResponse<?> createPrq(PurchaseRequestDto dto) throws CommonException {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        Long tenantId = userContext.getTenantId();
 
         PrqStatus status =
                 PrqStatus.DRAFT.equals(dto.getStatus())
@@ -62,6 +62,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .prqNumber(DocumentNumberUtil.generate(DocPrefix.PRQ))
                 .status(status)
                 .source(PrqSource.SEM_TEAM)
+                .createdBy(userContext.getUserId())
                 .notes(dto.getNotes())
                 .build();
 
@@ -169,7 +170,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 tenantId,
                 filter.getId(),
                 vendorId,
-                filter.getStatus(),
+                filter.getStatuses(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),
                 filter.getEndDateTime(),
