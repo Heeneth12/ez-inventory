@@ -24,6 +24,9 @@ public class PurchaseOrder extends CommonSerializable {
     @Column(name = "warehouse_id", nullable = false)
     private Long warehouseId;
 
+    @Column(name = "purchase_request_id")
+    private Long purchaseRequestId;
+
     @Column(name = "order_number", unique = true, nullable = false)
     private String orderNumber; // e.g., PO-2023-001
 

@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.prq.dto;
 
 
+import com.ezh.Inventory.purchase.prq.entity.PrqSource;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import lombok.*;
 
@@ -22,6 +23,7 @@ public class PurchaseRequestDto {
     private String department;
     private String prqNumber;
     private PrqStatus status;
+    private PrqSource source;
     private BigDecimal totalEstimatedAmount;
     private String notes;
     private Date createdAt;

@@ -65,7 +65,7 @@ CREATE TABLE purchase_order (
     tenant_id BIGINT NOT NULL,
     vendor_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
-    purchase_request_id,
+    purchase_request_id NOT NULL,
     order_number VARCHAR(100) UNIQUE NOT NULL,
     order_date BIGINT,
     expected_delivery_date BIGINT,

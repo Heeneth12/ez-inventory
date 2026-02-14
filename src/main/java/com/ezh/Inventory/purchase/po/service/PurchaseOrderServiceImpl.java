@@ -2,6 +2,8 @@ package com.ezh.Inventory.purchase.po.service;
 
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
+import com.ezh.Inventory.notifications.entity.NotificationType;
+import com.ezh.Inventory.notifications.service.NotificationService;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderFilter;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderItemDto;
@@ -10,6 +12,8 @@ import com.ezh.Inventory.purchase.po.entity.PurchaseOrder;
 import com.ezh.Inventory.purchase.po.entity.PurchaseOrderItem;
 import com.ezh.Inventory.purchase.po.repository.PurchaseOrderItemRepository;
 import com.ezh.Inventory.purchase.po.repository.PurchaseOrderRepository;
+import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
+import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestItemDto;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.service.PurchaseRequestService;
 import com.ezh.Inventory.utils.UserContextUtil;
@@ -43,6 +47,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseOrderItemRepository poItemRepository;
     private final PurchaseRequestService purchaseRequestService;
     private final ItemRepository itemRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -50,6 +55,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         Long currentUserId = UserContextUtil.getUserIdOrThrow();
+        Long prqId = dto.getPrqId();
+
+        if (prqId == null) {
+            CommonResponse<?> prqResponse = purchaseRequestService.createPrq(mapToPrqDto(dto));
+            prqId = Long.parseLong(prqResponse.getId());
+        }
 
         // 1. CAPTURE INPUTS (The "Flat" values)
         BigDecimal flatDiscount = safeDecimal(dto.getFlatDiscount());
@@ -60,10 +71,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .tenantId(tenantId)
                 .vendorId(currentUserId)
                 .warehouseId(dto.getWarehouseId())
+                .purchaseRequestId(prqId)
                 .orderNumber(DocumentNumberUtil.generate(DocPrefix.PO))
                 .orderDate(System.currentTimeMillis())
                 .expectedDeliveryDate(dto.getExpectedDeliveryDate())
-                .poStatus(PoStatus.ISSUED)
+                .poStatus(PoStatus.PENDING)
                 .notes(dto.getNotes())
                 .flatDiscount(flatDiscount)
                 .flatTax(flatTax)
@@ -138,7 +150,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (grandTotal.compareTo(BigDecimal.ZERO) < 0) grandTotal = BigDecimal.ZERO;
         po.setGrandTotal(grandTotal);
         poRepository.save(po);
-        purchaseRequestService.updateStatus(dto.getPrqId(), PrqStatus.CONVERTED);
+        purchaseRequestService.updateStatus(prqId, PrqStatus.CONVERTED);
         return CommonResponse.builder()
                 .id(po.getId().toString())
                 .message("PO Created. Pay: " + grandTotal)
@@ -241,6 +253,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             }
         }
 
+        if (po.getPoStatus() == PoStatus.PENDING && newStatus == PoStatus.ASN_CONFIRMED) {
+            notificationService.sendToOrg(
+                    po.getTenantId().toString(),
+                    "ASN Confirmed: PO #" + po.getOrderNumber(),
+                    "Advanced Shipping Notice (ASN) has been confirmed. The goods for PO #"
+                            + po.getOrderNumber() + " are now in transit and ready for delivery.",
+                    NotificationType.INFO
+            );
+        }
         // Update to the requested status
         po.setPoStatus(newStatus);
         poRepository.save(po);
@@ -298,5 +319,37 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private BigDecimal safeDecimal(BigDecimal val) {
         return val != null ? val : BigDecimal.ZERO;
+    }
+
+    private PurchaseRequestDto mapToPrqDto(PurchaseOrderDto poDto) {
+        if (poDto == null) return null;
+
+        return PurchaseRequestDto.builder()
+                .vendorId(poDto.getVendorId())
+                .vendorName(poDto.getVendorName())
+                .warehouseId(poDto.getWarehouseId())
+                .notes(poDto.getNotes())
+                .status(PrqStatus.PENDING)
+                .items(poDto.getItems() != null ?
+                        poDto.getItems().stream()
+                                .map(this::mapToPrqItemDto)
+                                .collect(Collectors.toList()) : new ArrayList<>())
+                .totalEstimatedAmount(poDto.getTotalAmount())
+                .build();
+    }
+
+    private PurchaseRequestItemDto mapToPrqItemDto(PurchaseOrderItemDto poItemDto) {
+        if (poItemDto == null) return null;
+        BigDecimal qty = BigDecimal.valueOf(poItemDto.getOrderedQty() != null ? poItemDto.getOrderedQty() : 0);
+        BigDecimal price = poItemDto.getUnitPrice() != null ? poItemDto.getUnitPrice() : BigDecimal.ZERO;
+        BigDecimal lineTotal = qty.multiply(price);
+
+        return PurchaseRequestItemDto.builder()
+                .itemId(poItemDto.getItemId())
+                .itemName(poItemDto.getItemName())
+                .requestedQty(poItemDto.getOrderedQty())
+                .estimatedUnitPrice(poItemDto.getUnitPrice())
+                .lineTotal(lineTotal)
+                .build();
     }
 }

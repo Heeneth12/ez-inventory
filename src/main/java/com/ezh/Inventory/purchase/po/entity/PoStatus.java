@@ -6,5 +6,7 @@ public enum PoStatus {
     PARTIALLY_RECEIVED, // Received 50/100
     COMPLETED,          // Received 100/100
     CANCELLED,           // Deal off
-    PENDING
+    PENDING,
+    ASN_CONFIRMED,
+    ASN_PENDING
 }
