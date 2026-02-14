@@ -11,4 +11,5 @@ public interface PurchaseReturnItemRepository extends JpaRepository<PurchaseRetu
 
     List<PurchaseReturnItem> findByPurchaseReturnId(Long returnId);
 
+    List<PurchaseReturnItem> findByPurchaseReturnIdIn(List<Long> returnIds);
 }

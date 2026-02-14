@@ -1,7 +1,6 @@
 package com.ezh.Inventory.purchase.grn.service;
 
 import com.ezh.Inventory.items.entity.Item;
-import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.grn.dto.GrnDto;
 import com.ezh.Inventory.purchase.grn.dto.GrnItemDto;
 import com.ezh.Inventory.purchase.grn.entity.GoodsReceipt;
@@ -14,6 +13,7 @@ import com.ezh.Inventory.purchase.po.entity.PurchaseOrder;
 import com.ezh.Inventory.purchase.po.entity.PurchaseOrderItem;
 import com.ezh.Inventory.purchase.po.repository.PurchaseOrderItemRepository;
 import com.ezh.Inventory.purchase.po.repository.PurchaseOrderRepository;
+import com.ezh.Inventory.purchase.returns.entity.PurchaseReturnItem;
 import com.ezh.Inventory.stock.dto.StockUpdateDto;
 import com.ezh.Inventory.stock.entity.MovementType;
 import com.ezh.Inventory.stock.entity.ReferenceType;
@@ -22,6 +22,8 @@ import com.ezh.Inventory.stock.repository.StockBatchRepository;
 import com.ezh.Inventory.stock.service.StockService;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.DocPrefix;
+import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +35,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,7 +54,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final PurchaseOrderItemRepository poItemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockService stockService;
-    private final ItemRepository itemRepository;
 
     public CommonResponse createAndApproveGrn(GrnDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
@@ -62,11 +66,12 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         GoodsReceipt grn = GoodsReceipt.builder()
                 .tenantId(tenantId)
                 .purchaseOrderId(po.getId())
-                .grnNumber("GRN-" + System.currentTimeMillis())
+                .grnNumber(DocumentNumberUtil.generate(DocPrefix.GRN))
                 .receivedDate(System.currentTimeMillis())
                 .supplierInvoiceNo(dto.getSupplierInvoiceNo())
-                .grnStatus(GrnStatus.APPROVED)
+                .grnStatus(GrnStatus.RECEIVED)
                 .build();
+
         grnRepository.save(grn);
 
         List<GoodsReceiptItem> grnItems = new ArrayList<>();
@@ -154,12 +159,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     public GrnDto getGrnDetails(Long grnId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        GoodsReceipt grn = grnRepository.findByIdAndTenantId(grnId, tenantId)
+        // Fetch GRN with all related data using JOIN FETCH (single optimized query)
+        GoodsReceipt grn = grnRepository.findByIdWithAllRelations(grnId, tenantId)
                 .orElseThrow(() -> new CommonException("GRN not found", HttpStatus.BAD_REQUEST));
 
-        List<GoodsReceiptItem> items = grnItemRepository.findByGoodsReceiptId(grnId);
-
-        return mapToGrnDto(grn, items);
+        return mapToGrnDto(grn, grn.getItems());
     }
 
 
@@ -173,10 +177,17 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         Page<GoodsReceipt> receipts = grnRepository.findByTenantId(tenantId, pageable);
 
-        return receipts.map(grn -> {
-            List<GoodsReceiptItem> items = grnItemRepository.findByGoodsReceiptId(grn.getId());
-            return mapToGrnDto(grn, items);
-        });
+        // Batch fetch all related data using IN clause (much better than loop)
+        List<Long> grnIds = receipts.getContent().stream()
+                .map(GoodsReceipt::getId)
+                .toList();
+
+        if (!grnIds.isEmpty()) {
+            // Fetch all GRNs with their relations in a single batch query
+            grnRepository.findAllByIdWithRelations(grnIds, tenantId);
+        }
+
+        return receipts.map(grn -> mapToGrnDto(grn, grn.getItems()));
     }
 
 
@@ -187,29 +198,39 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         List<GoodsReceipt> grns = grnRepository.findByPurchaseOrderIdAndTenantId(purchaseOrderId, tenantId);
 
-        return grns.stream().map(grn -> {
-            List<GoodsReceiptItem> items = grnItemRepository.findByGoodsReceiptId(grn.getId());
-            return mapToGrnDto(grn, items);
-        }).collect(Collectors.toList());
+        // Batch fetch all related data
+        List<Long> grnIds = grns.stream().map(GoodsReceipt::getId).toList();
+        
+        if (!grnIds.isEmpty()) {
+            grnRepository.findAllByIdWithRelations(grnIds, tenantId);
+        }
+
+        return grns.stream().map(grn -> mapToGrnDto(grn, grn.getItems())).toList();
     }
 
-    private GrnDto mapToGrnDto(GoodsReceipt grn, List<GoodsReceiptItem> items) {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
-        PurchaseOrder purchaseOrder = poRepository.findByIdAndTenantId(grn.getPurchaseOrderId(), tenantId)
-                .orElseThrow(() -> new CommonException("PO not found", HttpStatus.BAD_REQUEST));
+    private GrnDto mapToGrnDto(GoodsReceipt grn, Set<GoodsReceiptItem> items) {
+        // All data is already loaded via JOIN FETCH, no additional queries needed!
+        // Build item name map from preloaded Item relationships
+        Map<Long, Item> itemsMap = items.stream()
+                .filter(gri -> gri.getItem() != null)
+                .collect(Collectors.toMap(
+                        GoodsReceiptItem::getItemId,
+                        GoodsReceiptItem::getItem
+                ));
 
-        List<Long> itemIds = items.stream()
-                .map(GoodsReceiptItem::getItemId)
-                .distinct()
+        // Flatten all return items from preloaded PurchaseReturn relationships
+        List<PurchaseReturnItem> returnItems = grn.getPurchaseReturns().stream()
+                .flatMap(pr -> pr.getPurchaseReturnItems().stream())
                 .toList();
 
-        Map<Long, String> itemNamesMap = itemRepository.findByIdIn(itemIds)
-                .stream()
-                .collect(Collectors.toMap(Item::getId, Item::getName));
+        // Group return items by itemId + batchNumber composite key
+        Map<String, List<PurchaseReturnItem>> returnItemMap = returnItems.stream()
+                .collect(Collectors.groupingBy(returnItem -> 
+                    returnItem.getItemId() + "_" + (returnItem.getBatchNumber() != null ? returnItem.getBatchNumber() : "")));
 
         return GrnDto.builder()
                 .id(grn.getId())
-                .supplierId(purchaseOrder.getVendorId())
+                .supplierId(grn.getPurchaseOrder() != null ? grn.getPurchaseOrder().getVendorId() : null)
                 .supplierName("test")
                 .grnNumber(grn.getGrnNumber())
                 .purchaseOrderId(grn.getPurchaseOrderId())
@@ -218,19 +239,41 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .createdAt(grn.getCreatedAt())
                 .items(
                         items.stream()
-                                .map(item -> mapToGrnItemDto(item, itemNamesMap))
+                                .map(item -> mapToGrnItemDto(item, itemsMap, returnItemMap))
                                 .toList()
                 )
                 .build();
     }
 
-    private GrnItemDto mapToGrnItemDto(GoodsReceiptItem item, Map<Long, String> itemNamesMap) {
+    private GrnItemDto mapToGrnItemDto(GoodsReceiptItem item, Map<Long, Item> itemsMap,
+                                       Map<String, List<PurchaseReturnItem>> returnItemMap) {
+        // Create composite key to lookup return items for this specific item + batch
+        String compositeKey = item.getItemId() + "_" + (item.getBatchNumber() != null ? item.getBatchNumber() : "");
+        
+        // Calculate total returned quantity for this item + batch combination
+        int totalReturnedQty = returnItemMap.getOrDefault(compositeKey, List.of())
+                .stream()
+                .mapToInt(PurchaseReturnItem::getReturnQty)
+                .sum();
+        
+        // Calculate unit price from PO line total
+        BigDecimal unitPrice = null;
+        if (item.getPoItem() != null && item.getPoItem().getLineTotal() != null && item.getReceivedQty() > 0) {
+            unitPrice = item.getPoItem().getLineTotal().divide(
+                BigDecimal.valueOf(item.getReceivedQty()), 
+                2, 
+                RoundingMode.HALF_UP
+            );
+        }
+        
         return GrnItemDto.builder()
                 .poItemId(item.getPoItemId())
+                .poItemPrice(unitPrice)
                 .itemId(item.getItemId())
-                .itemName(itemNamesMap.getOrDefault(item.getItemId(), "Unknown Item"))
+                .itemName(itemsMap.get(item.getItemId()) != null ? itemsMap.get(item.getItemId()).getName() : "Unknown Item")
                 .receivedQty(item.getReceivedQty())
                 .rejectedQty(item.getRejectedQty())
+                .returnedQty(totalReturnedQty)
                 .batchNumber(item.getBatchNumber())
                 .expiryDate(item.getExpiryDate())
                 .build();

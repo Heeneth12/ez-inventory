@@ -1,9 +1,9 @@
 package com.ezh.Inventory.purchase.grn.entity;
 
+import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.purchase.po.entity.PurchaseOrderItem;
 import com.ezh.Inventory.utils.common.CommonSerializable;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
@@ -38,4 +38,13 @@ public class GoodsReceiptItem extends CommonSerializable {
 
     @Column(name = "expiry_date")
     private Long expiryDate;
+
+    // Relationships for JOIN FETCH optimization
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_id", insertable = false, updatable = false)
+    private Item item;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "po_item_id", insertable = false, updatable = false)
+    private PurchaseOrderItem poItem;
 }

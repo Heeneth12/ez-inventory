@@ -14,6 +14,8 @@ import com.ezh.Inventory.stock.repository.StockRepository;
 import com.ezh.Inventory.stock.service.StockService;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.DocPrefix;
+import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +48,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
     public CommonResponse createPurchaseReturn(PurchaseReturnDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        // VALIDATION: Ensure warehouse is selected so we know where to remove stock from
+        // VALIDATION: Ensure warehouse is selected, so we know where to remove stock from
         if (dto.getWarehouseId() == null) {
             throw new CommonException("Warehouse ID is required for returns", HttpStatus.BAD_REQUEST);
         }
@@ -53,12 +57,14 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
         PurchaseReturn purchaseReturn = PurchaseReturn.builder()
                 .tenantId(tenantId)
                 .supplierId(dto.getSupplierId())
+                .prNumber(DocumentNumberUtil.generate(DocPrefix.PR))
                 .goodsReceiptId(dto.getGoodsReceiptId())
                 .warehouseId(dto.getWarehouseId()) // Store the warehouse ID
                 .returnDate(System.currentTimeMillis())
                 .reason(dto.getReason())
                 .prStatus(ReturnStatus.COMPLETED)
                 .build();
+
         returnRepository.save(purchaseReturn);
 
         List<PurchaseReturnItem> returnItems = new ArrayList<>();
@@ -74,6 +80,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
                     .refundPrice(itemDto.getRefundPrice())
                     .batchNumber(itemDto.getBatchNumber()) // <--- NEW: Save Batch info
                     .build();
+
             returnItems.add(item);
 
             // B. UPDATE STOCK (OUT)
@@ -123,7 +130,14 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
         Page<PurchaseReturn> prPage = returnRepository.findAllByTenantId(tenantId, pageable);
 
-        return prPage.map(pr -> mapToReturnDto(pr, Collections.emptyList()));
+        List<Long> returnIds = prPage.stream().map(PurchaseReturn::getId).toList();
+
+        List<PurchaseReturnItem> allItems = returnItemRepository.findByPurchaseReturnIdIn(returnIds);
+
+        Map<Long, List<PurchaseReturnItem>> itemsByReturnId = allItems.stream()
+                .collect(Collectors.groupingBy(PurchaseReturnItem::getPurchaseReturnId));
+
+        return prPage.map(pr -> mapToReturnDto(pr, itemsByReturnId.get(pr.getId())));
     }
 
     private PurchaseReturnDto mapToReturnDto(PurchaseReturn pr, List<PurchaseReturnItem> items) {
@@ -136,6 +150,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
                 .id(pr.getId())
                 .supplierId(pr.getSupplierId())
                 .goodsReceiptId(pr.getGoodsReceiptId())
+                .prNumber(pr.getPrNumber())
                 .reason(pr.getReason())
                 .items(itemDtos)
                 .status(pr.getPrStatus())

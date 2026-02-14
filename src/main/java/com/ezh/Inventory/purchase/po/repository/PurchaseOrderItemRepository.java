@@ -16,4 +16,6 @@ public interface PurchaseOrderItemRepository extends JpaRepository<PurchaseOrder
 
     @Query("SELECT COUNT(i) FROM PurchaseOrderItem i WHERE i.purchaseOrderId = :poId AND i.receivedQty > 0")
     long countReceivedItemsForPo(@Param("poId") Long poId);
+
+    List<PurchaseOrderItem> findByIdIn(List<Long> list);
 }
