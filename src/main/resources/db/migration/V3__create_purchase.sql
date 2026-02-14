@@ -3,6 +3,7 @@ CREATE TABLE purchase_request (
     id BIGSERIAL PRIMARY KEY,
     uuid VARCHAR(36) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by  BIGINT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT false,
 
@@ -14,6 +15,7 @@ CREATE TABLE purchase_request (
     department VARCHAR(100),
     prq_number VARCHAR(100) UNIQUE NOT NULL,
     status VARCHAR(50),
+    source VARCHAR(50) NOT NULL,
     total_estimated_amount DECIMAL(18, 2),
     notes TEXT
 );
@@ -63,6 +65,7 @@ CREATE TABLE purchase_order (
     tenant_id BIGINT NOT NULL,
     vendor_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
+    purchase_request_id,
     order_number VARCHAR(100) UNIQUE NOT NULL,
     order_date BIGINT,
     expected_delivery_date BIGINT,

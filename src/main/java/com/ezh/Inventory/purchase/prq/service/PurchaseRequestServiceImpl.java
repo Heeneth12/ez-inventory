@@ -3,6 +3,7 @@ package com.ezh.Inventory.purchase.prq.service;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestItemDto;
+import com.ezh.Inventory.purchase.prq.entity.PrqSource;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.entity.PurchaseRequest;
 import com.ezh.Inventory.purchase.prq.entity.PurchaseRequestItem;
@@ -60,6 +61,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .department(dto.getDepartment())
                 .prqNumber(DocumentNumberUtil.generate(DocPrefix.PRQ))
                 .status(status)
+                .source(PrqSource.SEM_TEAM)
                 .notes(dto.getNotes())
                 .build();
 

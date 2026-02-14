@@ -39,6 +39,10 @@ public class PurchaseRequest extends CommonSerializable {
     @Column(name = "status")
     private PrqStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source" ,nullable = false)
+    private PrqSource source;
+
     @Column(name = "total_estimated_amount", precision = 18, scale = 2)
     private BigDecimal totalEstimatedAmount;
 
