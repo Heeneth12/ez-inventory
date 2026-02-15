@@ -20,6 +20,8 @@ import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,10 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +47,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseRequestService purchaseRequestService;
     private final ItemRepository itemRepository;
     private final NotificationService notificationService;
+    private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
@@ -166,7 +166,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         List<PurchaseOrderItem> items = poItemRepository.findByPurchaseOrderId(id);
 
-        return mapToDto(po, items, true);
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(List.of(po.getVendorId()));
+
+        return mapToDto(po, items, vendorDetails, true);
     }
 
     @Override
@@ -188,7 +190,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 pageable
         );
 
-        return poPage.map(po -> mapToDto(po, Collections.emptyList(), false));
+        Set<Long> vendorIds = poPage.stream().map(PurchaseOrder::getVendorId).collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(vendorIds.stream().toList());
+
+        return poPage.map(po -> mapToDto(po, Collections.emptyList(), vendorDetails, false));
     }
 
 
@@ -273,12 +279,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     }
 
     // Mapper Helper
-    private PurchaseOrderDto mapToDto(PurchaseOrder po, List<PurchaseOrderItem> items, boolean passItems) {
+    private PurchaseOrderDto mapToDto(PurchaseOrder po, List<PurchaseOrderItem> items,
+                                      Map<Long, UserMiniDto> vendorDetails, boolean passItems) {
 
         PurchaseOrderDto dto = new PurchaseOrderDto();
         dto.setId(po.getId());
         dto.setVendorId(po.getVendorId());
-//        dto.setVendorName(Client);
+        dto.setVendorDetails(vendorDetails.get(po.getVendorId()));
         dto.setWarehouseId(po.getWarehouseId());
         dto.setOrderNumber(po.getOrderNumber());
         dto.setExpectedDeliveryDate(po.getExpectedDeliveryDate());
@@ -326,7 +333,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         return PurchaseRequestDto.builder()
                 .vendorId(poDto.getVendorId())
-                .vendorName(poDto.getVendorName())
                 .warehouseId(poDto.getWarehouseId())
                 .notes(poDto.getNotes())
                 .status(PrqStatus.PENDING)

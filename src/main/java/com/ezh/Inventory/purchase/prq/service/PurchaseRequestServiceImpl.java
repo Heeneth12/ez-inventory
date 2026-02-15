@@ -15,6 +15,7 @@ import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -176,7 +178,12 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 filter.getEndDateTime(),
                 pageable
         );
-        return prqPage.map(this::mapToDto);
+
+        Set<Long> vendorIds = prqPage.stream().map(PurchaseRequest::getVendorId).collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(vendorIds.stream().toList());
+
+        return prqPage.map(prq -> mapToDto(prq, vendorDetails));
     }
 
     @Override
@@ -187,7 +194,11 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         PurchaseRequest purchaseRequest = prqRepository.findByIdAndTenantId(prqId, tenantId)
                 .orElseThrow(() -> new CommonException("PRQ not found", HttpStatus.NOT_FOUND));
 
-        return mapToDto(purchaseRequest);
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(
+                List.of(purchaseRequest.getVendorId())
+        );
+
+        return mapToDto(purchaseRequest, vendorDetails);
     }
 
     @Override
@@ -209,7 +220,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     }
 
 
-    private PurchaseRequestDto mapToDto(PurchaseRequest prq) {
+    private PurchaseRequestDto mapToDto(PurchaseRequest prq, Map<Long, UserMiniDto> vendorDetails) {
         Set<Long> ids = prq.getItems().stream().map(PurchaseRequestItem::getItemId).collect(Collectors.toSet());
 
         Map<Long, String> items = itemRepository
@@ -221,7 +232,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         return PurchaseRequestDto.builder()
                 .id(prq.getId())
                 .vendorId(prq.getVendorId())
-                .vendorName(getSupplierName(prq.getVendorId()))
+                .vendorDetails(vendorDetails.get(prq.getVendorId()))
                 .warehouseId(prq.getWarehouseId())
                 .requestedBy(prq.getRequestedBy())
                 .department(prq.getDepartment())
@@ -241,12 +252,5 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                                 .build()
                 ).collect(Collectors.toList()))
                 .build();
-    }
-
-
-    private String getSupplierName(Long id) throws CommonException {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
-        return authServiceClient.getUserDetailsById(id).getFullName();
     }
 }

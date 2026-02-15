@@ -10,12 +10,13 @@ import com.ezh.Inventory.purchase.returns.repository.PurchaseReturnRepository;
 import com.ezh.Inventory.stock.dto.StockUpdateDto;
 import com.ezh.Inventory.stock.entity.MovementType;
 import com.ezh.Inventory.stock.entity.ReferenceType;
-import com.ezh.Inventory.stock.repository.StockRepository;
 import com.ezh.Inventory.stock.service.StockService;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,7 +42,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
     private final PurchaseReturnRepository returnRepository;
     private final PurchaseReturnItemRepository returnItemRepository;
     private final StockService stockService;
-    private final StockRepository stockRepository;
+    private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
@@ -56,7 +57,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
         // 1. Create Return Header
         PurchaseReturn purchaseReturn = PurchaseReturn.builder()
                 .tenantId(tenantId)
-                .supplierId(dto.getSupplierId())
+                .vendorId(dto.getVendorId())
                 .prNumber(DocumentNumberUtil.generate(DocPrefix.PR))
                 .goodsReceiptId(dto.getGoodsReceiptId())
                 .warehouseId(dto.getWarehouseId()) // Store the warehouse ID
@@ -117,7 +118,9 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
         List<PurchaseReturnItem> items = returnItemRepository.findByPurchaseReturnId(returnId);
 
-        return mapToReturnDto(pr, items);
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(List.of(pr.getVendorId()));
+
+        return mapToReturnDto(pr, items, vendorDetails);
     }
 
     @Override
@@ -137,10 +140,15 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
         Map<Long, List<PurchaseReturnItem>> itemsByReturnId = allItems.stream()
                 .collect(Collectors.groupingBy(PurchaseReturnItem::getPurchaseReturnId));
 
-        return prPage.map(pr -> mapToReturnDto(pr, itemsByReturnId.get(pr.getId())));
+        Set<Long> vendorIds = prPage.stream().map(PurchaseReturn::getVendorId).collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> vendorDetails = authServiceClient.getBulkUserDetails(vendorIds.stream().toList());
+
+        return prPage.map(pr -> mapToReturnDto(pr, itemsByReturnId.get(pr.getId()), vendorDetails));
     }
 
-    private PurchaseReturnDto mapToReturnDto(PurchaseReturn pr, List<PurchaseReturnItem> items) {
+    private PurchaseReturnDto mapToReturnDto(PurchaseReturn pr, List<PurchaseReturnItem> items,
+                                             Map<Long, UserMiniDto> vendorDetails) {
 
         List<PurchaseReturnItemDto> itemDtos = items.stream()
                 .map(this::mapToItemDto)
@@ -148,7 +156,8 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
         return PurchaseReturnDto.builder()
                 .id(pr.getId())
-                .supplierId(pr.getSupplierId())
+                .vendorId(pr.getVendorId())
+                .vendorDetails(vendorDetails.get(pr.getVendorId()))
                 .goodsReceiptId(pr.getGoodsReceiptId())
                 .prNumber(pr.getPrNumber())
                 .reason(pr.getReason())

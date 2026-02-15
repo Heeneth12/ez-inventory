@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.po.dto;
 
 import com.ezh.Inventory.purchase.po.entity.PoStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -16,7 +17,6 @@ public class PurchaseOrderDto {
     private Long id;
     private Long prqId;
     private Long vendorId;
-    private String vendorName;
     private Long warehouseId;
     private String orderNumber;
     private Long orderDate;
@@ -30,5 +30,6 @@ public class PurchaseOrderDto {
     private BigDecimal totalTax;
     private BigDecimal grandTotal;
     private Date createdAt;
+    private UserMiniDto vendorDetails;
     private List<PurchaseOrderItemDto> items;
 }

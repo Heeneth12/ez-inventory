@@ -3,6 +3,7 @@ package com.ezh.Inventory.purchase.prq.dto;
 
 import com.ezh.Inventory.purchase.prq.entity.PrqSource;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -17,7 +18,6 @@ import java.util.List;
 public class PurchaseRequestDto {
     private Long id;
     private Long vendorId;
-    private String vendorName;
     private Long warehouseId;
     private Long requestedBy;
     private String department;
@@ -27,5 +27,6 @@ public class PurchaseRequestDto {
     private BigDecimal totalEstimatedAmount;
     private String notes;
     private Date createdAt;
+    private UserMiniDto vendorDetails;
     private List<PurchaseRequestItemDto> items;
 }

@@ -28,8 +28,8 @@ public class PurchaseReturn extends CommonSerializable {
     @Column(name = "goods_receipt_id")
     private Long goodsReceiptId; // Optional: Link to original receipt
 
-    @Column(name = "supplier_id", nullable = false)
-    private Long supplierId;
+    @Column(name = "vendor_id", nullable = false)
+    private Long vendorId;
 
     @Column(name = "return_date")
     private Long returnDate;

@@ -24,6 +24,8 @@ import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +56,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final PurchaseOrderItemRepository poItemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockService stockService;
+    private final AuthServiceClient authServiceClient;
 
     public CommonResponse createAndApproveGrn(GrnDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
@@ -163,7 +166,13 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         GoodsReceipt grn = grnRepository.findByIdWithAllRelations(grnId, tenantId)
                 .orElseThrow(() -> new CommonException("GRN not found", HttpStatus.BAD_REQUEST));
 
-        return mapToGrnDto(grn, grn.getItems());
+        // Fetch vendor details if needed
+        Map<Long, UserMiniDto> vendorDetails = Map.of();
+        if (grn.getPurchaseOrder() != null && grn.getPurchaseOrder().getVendorId() != null) {
+            vendorDetails = authServiceClient.getBulkUserDetails(List.of(grn.getPurchaseOrder().getVendorId()));
+        }
+
+        return mapToGrnDto(grn, grn.getItems(), vendorDetails);
     }
 
 
@@ -187,7 +196,18 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             grnRepository.findAllByIdWithRelations(grnIds, tenantId);
         }
 
-        return receipts.map(grn -> mapToGrnDto(grn, grn.getItems()));
+        Set<Long> vendorIds = receipts.getContent().stream()
+                .filter(grn -> grn.getPurchaseOrder() != null)
+                .map(grn -> grn.getPurchaseOrder().getVendorId())
+                .collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> finalVendorDetails = Map.of();
+        if (!vendorIds.isEmpty()) {
+            finalVendorDetails = authServiceClient.getBulkUserDetails(vendorIds.stream().toList());
+        }
+
+        Map<Long, UserMiniDto> vendorDetailsMap = finalVendorDetails;
+        return receipts.map(grn -> mapToGrnDto(grn, grn.getItems(), vendorDetailsMap));
     }
 
 
@@ -205,10 +225,22 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             grnRepository.findAllByIdWithRelations(grnIds, tenantId);
         }
 
-        return grns.stream().map(grn -> mapToGrnDto(grn, grn.getItems())).toList();
+        // Fetch vendor details for all GRNs
+        Set<Long> vendorIds = grns.stream()
+                .filter(grn -> grn.getPurchaseOrder() != null)
+                .map(grn -> grn.getPurchaseOrder().getVendorId())
+                .collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> vendorDetails = Map.of();
+        if (!vendorIds.isEmpty()) {
+            vendorDetails = authServiceClient.getBulkUserDetails(vendorIds.stream().toList());
+        }
+
+        Map<Long, UserMiniDto> finalVendorDetails = vendorDetails;
+        return grns.stream().map(grn -> mapToGrnDto(grn, grn.getItems(), finalVendorDetails)).toList();
     }
 
-    private GrnDto mapToGrnDto(GoodsReceipt grn, Set<GoodsReceiptItem> items) {
+    private GrnDto mapToGrnDto(GoodsReceipt grn, Set<GoodsReceiptItem> items, Map<Long, UserMiniDto> vendorDetails) {
         // All data is already loaded via JOIN FETCH, no additional queries needed!
         // Build item name map from preloaded Item relationships
         Map<Long, Item> itemsMap = items.stream()
@@ -230,10 +262,13 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         return GrnDto.builder()
                 .id(grn.getId())
-                .supplierId(grn.getPurchaseOrder() != null ? grn.getPurchaseOrder().getVendorId() : null)
-                .supplierName("test")
+                .vendorId(grn.getPurchaseOrder() != null ? grn.getPurchaseOrder().getVendorId() : null)
+                .vendorDetails(grn.getPurchaseOrder() != null && grn.getPurchaseOrder().getVendorId() != null 
+                    ? vendorDetails.get(grn.getPurchaseOrder().getVendorId()) 
+                    : null)
                 .grnNumber(grn.getGrnNumber())
                 .purchaseOrderId(grn.getPurchaseOrderId())
+                .purchaseOrderNumber(grn.getPurchaseOrder().getOrderNumber())
                 .supplierInvoiceNo(grn.getSupplierInvoiceNo())
                 .status(grn.getGrnStatus())
                 .createdAt(grn.getCreatedAt())
