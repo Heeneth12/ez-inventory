@@ -238,6 +238,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .department(prq.getDepartment())
                 .prqNumber(prq.getPrqNumber())
                 .status(prq.getStatus())
+                .source(prq.getSource())
                 .totalEstimatedAmount(prq.getTotalEstimatedAmount())
                 .notes(prq.getNotes())
                 .createdAt(prq.getCreatedAt())

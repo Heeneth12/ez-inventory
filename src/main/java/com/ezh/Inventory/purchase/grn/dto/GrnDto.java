@@ -19,7 +19,7 @@ public class GrnDto {
     private String grnNumber;
     private Long purchaseOrderId;
     private String purchaseOrderNumber;
-    private String supplierInvoiceNo; // Optional
+    private String vendorInvoiceNo; // Optional
     private GrnStatus status;
     private Date createdAt;
     private UserMiniDto vendorDetails;

@@ -129,7 +129,7 @@ CREATE TABLE goods_receipt (
     tenant_id BIGINT NOT NULL,
     grn_number VARCHAR(100) UNIQUE,
     received_date BIGINT,
-    supplier_invoice_no VARCHAR(100),
+    vendor_invoice_no VARCHAR(100),
     grn_status VARCHAR(50),
 
     -- Foreign key constraint
@@ -182,7 +182,7 @@ CREATE TABLE purchase_return (
     tenant_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
     goods_receipt_id BIGINT,
-    supplier_id BIGINT NOT NULL,
+    vendor_id BIGINT NOT NULL,
     return_date BIGINT,
     reason TEXT,
     pr_status VARCHAR(50),

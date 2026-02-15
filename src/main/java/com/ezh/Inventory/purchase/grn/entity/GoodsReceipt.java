@@ -30,8 +30,8 @@ public class GoodsReceipt extends CommonSerializable {
     @Column(name = "received_date")
     private Long receivedDate;
 
-    @Column(name = "supplier_invoice_no")
-    private String supplierInvoiceNo; // The paper bill number from supplier
+    @Column(name = "vendor_invoice_no")
+    private String vendorInvoiceNo;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "grn_status", length = 50)

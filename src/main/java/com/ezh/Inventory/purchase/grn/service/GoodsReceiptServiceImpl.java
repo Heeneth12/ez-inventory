@@ -71,7 +71,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .purchaseOrderId(po.getId())
                 .grnNumber(DocumentNumberUtil.generate(DocPrefix.GRN))
                 .receivedDate(System.currentTimeMillis())
-                .supplierInvoiceNo(dto.getSupplierInvoiceNo())
+                .vendorInvoiceNo(dto.getVendorInvoiceNo())
                 .grnStatus(GrnStatus.RECEIVED)
                 .build();
 
@@ -269,7 +269,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .grnNumber(grn.getGrnNumber())
                 .purchaseOrderId(grn.getPurchaseOrderId())
                 .purchaseOrderNumber(grn.getPurchaseOrder().getOrderNumber())
-                .supplierInvoiceNo(grn.getSupplierInvoiceNo())
+                .vendorInvoiceNo(grn.getVendorInvoiceNo())
                 .status(grn.getGrnStatus())
                 .createdAt(grn.getCreatedAt())
                 .items(
