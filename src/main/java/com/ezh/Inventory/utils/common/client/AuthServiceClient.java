@@ -2,6 +2,7 @@ package com.ezh.Inventory.utils.common.client;
 
 import com.ezh.Inventory.utils.common.ExternalApiResponse;
 import com.ezh.Inventory.utils.common.dto.UserDto;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +59,40 @@ public class AuthServiceClient {
             log.error("Failed to fetch user details from Auth Service for userId: {}. Status Code: {}, Response Body: {}",
                     userId, response.getStatusCode(), response.getBody());
             throw new RuntimeException("Failed to fetch user details from Auth Service");
+        }
+    }
+
+
+    public Map<Long, UserMiniDto> getBulkUserDetails(List<Long> ids) {
+        URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
+                .path("/api/v1/user/bulk")
+                .queryParam("ids", ids)
+                .build()
+                .toUri();
+
+        HttpHeaders headers = new HttpHeaders();
+        String token = request.getHeader("Authorization");
+        headers.setBearerAuth(token.replace("Bearer ", ""));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // 2. Use ParameterizedTypeReference to capture the Map inside the ResponseResource
+        ResponseEntity<ExternalApiResponse<Map<Long, UserMiniDto>>> response = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                entity,
+                new ParameterizedTypeReference<ExternalApiResponse<Map<Long, UserMiniDto>>>() {
+                }
+        );
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            log.info("Received successful response from Auth Service for userId: {}", response.getBody().getData());
+            return response.getBody().getData();
+        } else {
+            log.error("Failed bulk fetch. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
+            throw new RuntimeException("Failed to fetch bulk user details");
         }
     }
 }
