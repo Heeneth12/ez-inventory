@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.returns.controller;
 
 import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnDto;
+import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnFilter;
 import com.ezh.Inventory.purchase.returns.entity.ReturnStatus;
 import com.ezh.Inventory.purchase.returns.service.PurchaseReturnService;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -54,12 +55,13 @@ public class PurchaseReturnController {
     }
 
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<Page<PurchaseReturnDto>> getAllReturns(
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestBody PurchaseReturnFilter filter) {
         log.info("Fetching Purchase Returns page={} size={}", page, size);
-        Page<PurchaseReturnDto> result = purchaseReturnService.getAllReturns(page, size);
+        Page<PurchaseReturnDto> result = purchaseReturnService.getAllReturns(page, size, filter);
         return ResponseResource.success(HttpStatus.OK, result, "Purchase Returns list fetched");
     }
 }

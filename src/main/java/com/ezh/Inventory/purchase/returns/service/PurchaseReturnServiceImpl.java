@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.returns.service;
 
 import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnDto;
+import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnFilter;
 import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnItemDto;
 import com.ezh.Inventory.purchase.returns.entity.PurchaseReturn;
 import com.ezh.Inventory.purchase.returns.entity.PurchaseReturnItem;
@@ -33,9 +34,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
     private final PurchaseReturnRepository returnRepository;
@@ -209,13 +210,21 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PurchaseReturnDto> getAllReturns(Integer page, Integer size) {
+    public Page<PurchaseReturnDto> getAllReturns(Integer page, Integer size, PurchaseReturnFilter filter) throws CommonException{
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Page<PurchaseReturn> prPage = returnRepository.findAllByTenantId(tenantId, pageable);
+        Page<PurchaseReturn> prPage = returnRepository.findAllPR(
+                tenantId,
+                filter.getVendorId(),
+                filter.getPurchaseReturnStatuses(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
+                pageable
+        );
 
         List<Long> returnIds = prPage.stream().map(PurchaseReturn::getId).toList();
 

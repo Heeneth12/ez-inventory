@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.returns.service;
 
 import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnDto;
+import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnFilter;
 import com.ezh.Inventory.purchase.returns.entity.ReturnStatus;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -16,5 +17,5 @@ public interface PurchaseReturnService {
 
     PurchaseReturnDto getReturnDetails(Long returnId) throws CommonException;
 
-    Page<PurchaseReturnDto> getAllReturns(Integer page, Integer size);
+    Page<PurchaseReturnDto> getAllReturns(Integer page, Integer size, PurchaseReturnFilter filter) throws CommonException;
 }
