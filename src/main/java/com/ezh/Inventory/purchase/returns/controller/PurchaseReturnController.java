@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.returns.controller;
 
 import com.ezh.Inventory.purchase.returns.dto.PurchaseReturnDto;
+import com.ezh.Inventory.purchase.returns.entity.ReturnStatus;
 import com.ezh.Inventory.purchase.returns.service.PurchaseReturnService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -21,10 +22,28 @@ public class PurchaseReturnController {
     private final PurchaseReturnService purchaseReturnService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> createPurchaseReturn(@RequestBody PurchaseReturnDto dto) throws CommonException {
+    public ResponseResource<CommonResponse<?>> createPurchaseReturn(@RequestBody PurchaseReturnDto dto) throws CommonException {
         log.info("Creating Purchase Return: {}", dto);
-        CommonResponse response = purchaseReturnService.createPurchaseReturn(dto);
+        CommonResponse<?> response = purchaseReturnService.createPurchaseReturn(dto);
         return ResponseResource.success(HttpStatus.CREATED, response, "Purchase Return created successfully");
+    }
+
+    @PostMapping(value = "/{returnId}/update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updatePurchaseReturn(
+            @PathVariable Long returnId,
+            @RequestBody PurchaseReturnDto dto) throws CommonException {
+        log.info("Updating Purchase Return ID: {} with data: {}", returnId, dto);
+        CommonResponse<?> response = purchaseReturnService.updatePurchaseReturn(returnId, dto);
+        return ResponseResource.success(HttpStatus.OK, response, "Purchase Return updated successfully");
+    }
+
+    @PatchMapping(value = "/{returnId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updateStatus(
+            @PathVariable Long returnId,
+            @RequestParam ReturnStatus status) throws CommonException {
+        log.info("Updating status for Purchase Return ID: {} to {}", returnId, status);
+        CommonResponse<?> response = purchaseReturnService.updateStatus(returnId, status);
+        return ResponseResource.success(HttpStatus.OK, response, "Purchase Return status updated successfully");
     }
 
     @GetMapping(value = "/{returnId}", produces = MediaType.APPLICATION_JSON_VALUE)

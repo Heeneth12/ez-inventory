@@ -17,6 +17,7 @@ public class PurchaseReturnDto {
     private Long warehouseId;
     private String prNumber;
     private Long goodsReceiptId; // Optional link
+    private String goodsReceiptNumber;
     private String reason;
     private ReturnStatus status;
     private UserMiniDto vendorDetails;

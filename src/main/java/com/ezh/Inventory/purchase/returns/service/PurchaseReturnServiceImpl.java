@@ -28,7 +28,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,64 +45,149 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
 
     @Override
     @Transactional
-    public CommonResponse createPurchaseReturn(PurchaseReturnDto dto) throws CommonException {
+    public CommonResponse<?> createPurchaseReturn(PurchaseReturnDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        // VALIDATION: Ensure warehouse is selected, so we know where to remove stock from
         if (dto.getWarehouseId() == null) {
-            throw new CommonException("Warehouse ID is required for returns", HttpStatus.BAD_REQUEST);
+            throw new CommonException("Warehouse ID is required", HttpStatus.BAD_REQUEST);
         }
 
-        // 1. Create Return Header
+        // 1. Create Return Header as PENDING
         PurchaseReturn purchaseReturn = PurchaseReturn.builder()
                 .tenantId(tenantId)
                 .vendorId(dto.getVendorId())
                 .prNumber(DocumentNumberUtil.generate(DocPrefix.PR))
                 .goodsReceiptId(dto.getGoodsReceiptId())
-                .warehouseId(dto.getWarehouseId()) // Store the warehouse ID
+                .warehouseId(dto.getWarehouseId())
                 .returnDate(System.currentTimeMillis())
                 .reason(dto.getReason())
-                .prStatus(ReturnStatus.COMPLETED)
+                .prStatus(ReturnStatus.PENDING) // Initial state
                 .build();
 
         returnRepository.save(purchaseReturn);
 
-        List<PurchaseReturnItem> returnItems = new ArrayList<>();
-
-        // 2. Process Items
-        for (PurchaseReturnItemDto itemDto : dto.getItems()) {
-
-            // A. Save Return Item (including Batch Number for history)
-            PurchaseReturnItem item = PurchaseReturnItem.builder()
-                    .purchaseReturnId(purchaseReturn.getId())
-                    .itemId(itemDto.getItemId())
-                    .returnQty(itemDto.getReturnQty())
-                    .refundPrice(itemDto.getRefundPrice())
-                    .batchNumber(itemDto.getBatchNumber()) // <--- NEW: Save Batch info
-                    .build();
-
-            returnItems.add(item);
-
-            // B. UPDATE STOCK (OUT)
-            // Use the specific batch number so correct price is used and batch qty is reduced
-            StockUpdateDto stockUpdate = StockUpdateDto.builder()
-                    .itemId(itemDto.getItemId())
-                    .warehouseId(dto.getWarehouseId()) // Use DTO value, not hardcoded
-                    .quantity(itemDto.getReturnQty())
-                    .transactionType(MovementType.OUT)
-                    .referenceType(ReferenceType.PURCHASE_RETURN)
-                    .referenceId(purchaseReturn.getId())
-                    .batchNumber(itemDto.getBatchNumber()) // <--- NEW: Deduct from specific batch
-                    .build();
-
-            stockService.updateStock(stockUpdate);
-        }
+        // 2. Save Items
+        List<PurchaseReturnItem> returnItems = dto.getItems().stream().map(itemDto ->
+                PurchaseReturnItem.builder()
+                        .purchaseReturnId(purchaseReturn.getId())
+                        .itemId(itemDto.getItemId())
+                        .returnQty(itemDto.getReturnQty())
+                        .refundPrice(itemDto.getRefundPrice())
+                        .batchNumber(itemDto.getBatchNumber())
+                        .build()
+        ).collect(Collectors.toList());
 
         returnItemRepository.saveAll(returnItems);
 
         return CommonResponse.builder()
                 .id(purchaseReturn.getId().toString())
-                .message("Return Processed successfully")
+                .message("Purchase return draft created. Pending completion.")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CommonResponse<?> updatePurchaseReturn(Long returnId, PurchaseReturnDto dto) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        // 1. Fetch the existing entity with its items
+        PurchaseReturn pr = returnRepository.findByIdAndTenantId(returnId, tenantId)
+                .orElseThrow(() -> new CommonException("Return record not found", HttpStatus.NOT_FOUND));
+
+        // 2. Guardrail: Only update if PENDING
+        if (pr.getPrStatus() != ReturnStatus.PENDING) {
+            throw new CommonException("Cannot update a completed return", HttpStatus.BAD_REQUEST);
+        }
+
+        // 3. Update Header
+        pr.setVendorId(dto.getVendorId());
+        pr.setWarehouseId(dto.getWarehouseId());
+        pr.setReason(dto.getReason());
+
+        // 4. Selective Item Update (The "Normal" way)
+        List<PurchaseReturnItem> currentItems = pr.getPurchaseReturnItems();
+
+        // Convert DTOs to Entities and synchronize the list
+        List<PurchaseReturnItem> updatedItems = dto.getItems().stream().map(itemDto -> {
+            if (itemDto.getId() != null) {
+                // Find existing item to update
+                return currentItems.stream()
+                        .filter(i -> i.getId().equals(itemDto.getId()))
+                        .findFirst()
+                        .map(existing -> {
+                            existing.setItemId(itemDto.getItemId());
+                            existing.setReturnQty(itemDto.getReturnQty());
+                            existing.setRefundPrice(itemDto.getRefundPrice());
+                            existing.setBatchNumber(itemDto.getBatchNumber());
+                            return existing;
+                        }).orElseGet(() -> createNewItem(pr.getId(), itemDto)); // Edge case: ID provided but not found
+            } else {
+                // It's a brand new item added in the UI
+                return createNewItem(pr.getId(), itemDto);
+            }
+        }).collect(Collectors.toList());
+
+        // 5. Update the collection
+        currentItems.clear();
+        currentItems.addAll(updatedItems);
+
+        returnRepository.save(pr);
+
+        return CommonResponse.builder()
+                .id(pr.getId().toString())
+                .message("Return updated successfully via selective update")
+                .build();
+    }
+
+    private PurchaseReturnItem createNewItem(Long prId, PurchaseReturnItemDto dto) {
+        return PurchaseReturnItem.builder()
+                .purchaseReturnId(prId)
+                .itemId(dto.getItemId())
+                .returnQty(dto.getReturnQty())
+                .refundPrice(dto.getRefundPrice())
+                .batchNumber(dto.getBatchNumber())
+                .build();
+    }
+
+
+    @Override
+    @Transactional
+    public CommonResponse<?> updateStatus(Long returnId, ReturnStatus newStatus) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        // Fetch the Return Record
+        PurchaseReturn pr = returnRepository.findByIdAndTenantId(returnId, tenantId)
+                .orElseThrow(() -> new CommonException("Return record not found", HttpStatus.NOT_FOUND));
+
+        // Prevent duplicate processing
+        if (pr.getPrStatus() == ReturnStatus.COMPLETED) {
+            throw new CommonException("Return is already completed and stock has been adjusted.", HttpStatus.BAD_REQUEST);
+        }
+
+        // If moving to COMPLETED, perform the stock movement
+        if (newStatus == ReturnStatus.COMPLETED) {
+            List<PurchaseReturnItem> items = returnItemRepository.findByPurchaseReturnId(returnId);
+
+            for (PurchaseReturnItem item : items) {
+                StockUpdateDto stockUpdate = StockUpdateDto.builder()
+                        .itemId(item.getItemId())
+                        .warehouseId(pr.getWarehouseId())
+                        .quantity(item.getReturnQty())
+                        .transactionType(MovementType.OUT)
+                        .referenceType(ReferenceType.PURCHASE_RETURN)
+                        .referenceId(pr.getId())
+                        .batchNumber(item.getBatchNumber())
+                        .build();
+
+                stockService.updateStock(stockUpdate);
+            }
+        }
+
+        pr.setPrStatus(newStatus);
+        returnRepository.save(pr);
+
+        return CommonResponse.builder()
+                .id(pr.getId().toString())
+                .message("Return status updated to " + newStatus)
                 .build();
     }
 
