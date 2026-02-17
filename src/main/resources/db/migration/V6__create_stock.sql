@@ -106,4 +106,3 @@ CREATE TABLE stock_adjustment_item (
 
 CREATE INDEX idx_stock_adjustment_uuid ON stock_adjustment(uuid);
 CREATE INDEX idx_stock_adjustment_status ON stock_adjustment(adjustment_status); -- Index on new column name
-CREATE INDEX idx_adjustment_item_adjustment_id ON stock_adjustment_item(adjustment_id);
