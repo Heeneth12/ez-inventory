@@ -15,7 +15,7 @@ CREATE TABLE contact (
     credit_days INTEGER,
     connected_tenant_id BIGINT,
     network_request_id BIGINT,
-    active BOOLEAN DEFAULT true
+    active BOOLEAN DEFAULT true,
     CONSTRAINT fk_contact_network_request
             FOREIGN KEY (network_request_id)
             REFERENCES network_requests(id)
