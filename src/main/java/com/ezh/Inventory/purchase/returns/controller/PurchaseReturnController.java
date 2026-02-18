@@ -38,7 +38,7 @@ public class PurchaseReturnController {
         return ResponseResource.success(HttpStatus.OK, response, "Purchase Return updated successfully");
     }
 
-    @PatchMapping(value = "/{returnId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/{returnId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<CommonResponse<?>> updateStatus(
             @PathVariable Long returnId,
             @RequestParam ReturnStatus status) throws CommonException {

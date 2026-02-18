@@ -172,10 +172,20 @@ public class StockServiceImpl implements StockService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<StockLedgerDto> getStockTransactions(StockFilterDto filterDto, Integer page, Integer size) throws CommonException {
+    public Page<StockLedgerDto> getStockTransactions(StockLedgerFilter filterDto, Integer page, Integer size) throws CommonException {
         Long tenantId = getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<StockLedger> stockLedger = stockLedgerRepository.findByTenantId(tenantId, pageable);
+        Page<StockLedger> stockLedger = stockLedgerRepository.findAllStockLedger(
+                tenantId,
+                filterDto.getId(),
+                filterDto.getWarehouseId(),
+                filterDto.getTransactionTypes(),
+                filterDto.getReferenceTypes(),
+                filterDto.getSearchQuery(),
+                filterDto.getStartDateTime(),
+                filterDto.getEndDateTime(),
+                pageable
+        );
         return stockLedger.map(this::convertToDTO);
     }
 

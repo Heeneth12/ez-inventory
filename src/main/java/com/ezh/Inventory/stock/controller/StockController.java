@@ -49,7 +49,7 @@ public class StockController {
 
     @PostMapping(value = "/ledger", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<Page<StockLedgerDto>> getStockTransactions(@RequestParam Integer page, @RequestParam Integer size,
-                                                                       @RequestBody StockFilterDto filter) throws CommonException {
+                                                                       @RequestBody StockLedgerFilter filter) throws CommonException {
         log.info("Entered get stockTransactions with {}", filter);
         Page<StockLedgerDto> response = stockService.getStockTransactions(filter, page, size);
         return ResponseResource.success(HttpStatus.OK, response, "fetched all stock ledger");
