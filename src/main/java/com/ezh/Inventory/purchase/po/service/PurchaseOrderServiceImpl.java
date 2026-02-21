@@ -16,6 +16,7 @@ import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestItemDto;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.service.PurchaseRequestService;
+import com.ezh.Inventory.security.UserContext;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
@@ -48,6 +49,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final ItemRepository itemRepository;
     private final NotificationService notificationService;
     private final AuthServiceClient authServiceClient;
+    private final UserContext userContext;
 
     @Override
     @Transactional
@@ -176,13 +178,17 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     public Page<PurchaseOrderDto> getAllPurchaseOrders(Integer page, Integer size, PurchaseOrderFilter filter) {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        Long vendorId = null;
+        if (Objects.equals(userContext.getUserType(), "VENDOR")) {
+            vendorId = userContext.getUserId();
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<PurchaseOrder> poPage = poRepository.findAllPurchaseOrders(
                 tenantId,
                 filter.getId(),
                 filter.getStatus() != null ? PoStatus.valueOf(filter.getStatus()) : null,
-                filter.getSupplierId(),
+                vendorId,
                 filter.getWarehouseId(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),

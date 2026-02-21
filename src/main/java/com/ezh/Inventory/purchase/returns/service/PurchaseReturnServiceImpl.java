@@ -8,6 +8,7 @@ import com.ezh.Inventory.purchase.returns.entity.PurchaseReturnItem;
 import com.ezh.Inventory.purchase.returns.entity.ReturnStatus;
 import com.ezh.Inventory.purchase.returns.repository.PurchaseReturnItemRepository;
 import com.ezh.Inventory.purchase.returns.repository.PurchaseReturnRepository;
+import com.ezh.Inventory.security.UserContext;
 import com.ezh.Inventory.stock.dto.StockUpdateDto;
 import com.ezh.Inventory.stock.entity.MovementType;
 import com.ezh.Inventory.stock.entity.ReferenceType;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -43,6 +45,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
     private final PurchaseReturnItemRepository returnItemRepository;
     private final StockService stockService;
     private final AuthServiceClient authServiceClient;
+    private final UserContext userContext;
 
     @Override
     @Transactional
@@ -213,12 +216,16 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
     public Page<PurchaseReturnDto> getAllReturns(Integer page, Integer size, PurchaseReturnFilter filter) throws CommonException{
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        Long vendorId = null;
+        if (Objects.equals(userContext.getUserType(), "VENDOR")) {
+            vendorId = userContext.getUserId();
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<PurchaseReturn> prPage = returnRepository.findAllPR(
                 tenantId,
-                filter.getVendorId(),
+                vendorId,
                 filter.getPurchaseReturnStatuses(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),
