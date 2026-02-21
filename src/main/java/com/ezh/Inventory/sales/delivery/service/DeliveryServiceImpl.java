@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.delivery.service;
 
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.sales.delivery.dto.*;
 import com.ezh.Inventory.sales.delivery.entity.*;
 import com.ezh.Inventory.sales.delivery.repository.DeliveryItemRepository;
@@ -18,6 +17,8 @@ import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,6 +45,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final DeliveryItemRepository deliveryItemRepository;
     private final InvoiceRepository invoiceRepository;
     private final RouteRepository routeRepository;
+    private final AuthServiceClient authServiceClient;
 
 
     @Override
@@ -85,15 +89,15 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .tenantId(tenantId)
                 .deliveryNumber(DocumentNumberUtil.generate(DocPrefix.DEL))
                 .invoice(invoice)
-                .customer(invoice.getCustomer())
+                .customerId(invoice.getCustomerId())
                 .type(type)
                 .status(initialStatus)
                 .scheduledDate(scheduledDate)
                 .shippedDate(shippedDate)
                 .deliveredDate(deliveredDate)
                 .deliveryAddress(dto.getShippingAddress()) // Important for courier
-                .contactPerson(invoice.getCustomer().getName())
-                .contactPhone(invoice.getCustomer().getPhone())
+//                .contactPerson(invoice.getCustomer().getName())
+//                .contactPhone(invoice.getCustomer().getPhone())
                 .build();
 
         deliveryRepository.save(delivery);
@@ -182,8 +186,9 @@ public class DeliveryServiceImpl implements DeliveryService {
 
         Delivery delivery = deliveryRepository.findById(deliveryId)
                 .orElseThrow(() -> new CommonException("Delivery not found with ID: " + deliveryId, HttpStatus.NOT_FOUND));
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(delivery.getCustomerId()));
 
-        return mapToDto(delivery);
+        return mapToDto(delivery, customerMap, true);
     }
 
     @Override
@@ -196,7 +201,18 @@ public class DeliveryServiceImpl implements DeliveryService {
 
         Page<Delivery> deliveryPage = deliveryRepository.findAll(pageable);
 
-        return deliveryPage.map(this::mapToDto);
+        List<Long> customerIds = deliveryPage.getContent().stream()
+                .map(Delivery::getCustomerId)
+                .distinct()
+                .toList();
+
+        Map<Long, UserMiniDto> customerMap = new HashMap<>();
+        if (!customerIds.isEmpty()) {
+            customerMap = authServiceClient.getBulkUserDetails(customerIds);
+        }
+
+            final Map<Long, UserMiniDto> finalMap = customerMap;
+        return deliveryPage.map(d -> mapToDto(d, finalMap, true));
     }
 
     @Override
@@ -265,8 +281,8 @@ public class DeliveryServiceImpl implements DeliveryService {
                 filter.getShippedDate(),
                 filter.getDeliveredDate()
         );
-
-        return deliveries.stream().map(this::mapToDto).toList();
+        final Map<Long, UserMiniDto> finalMap = new HashMap<>();
+        return deliveries.stream().map(dev ->  mapToDto(dev, finalMap, false)).toList();
     }
 
 
@@ -481,7 +497,8 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .id(delivery.getId())
                 .deliveryNumber(delivery.getDeliveryNumber())
                 .status(delivery.getStatus())
-                .customerName(delivery.getCustomer().getName())
+                .customerId(delivery.getCustomerId())
+                .customerName("Test")
                 .deliveryAddress(delivery.getDeliveryAddress())
                 .contactPerson(delivery.getContactPerson())
                 .contactPhone(delivery.getContactPhone())
@@ -509,7 +526,25 @@ public class DeliveryServiceImpl implements DeliveryService {
     }
 
 
-    private DeliveryDto mapToDto(Delivery delivery) {
+    private DeliveryDto mapToDto(Delivery delivery, Map<Long, UserMiniDto> customerMap, boolean includeContact) {
+
+        UserMiniDto contactMini = null;
+        String customerName = null;
+
+        if (includeContact && customerMap != null) {
+            UserMiniDto userDetail = customerMap.getOrDefault(delivery.getCustomerId(), new UserMiniDto());
+
+            contactMini = UserMiniDto.builder()
+                    .id(userDetail.getId())
+                    .userType(userDetail.getUserType())
+                    .userUuid(userDetail.getUserUuid())
+                    .name(userDetail.getName())
+                    .email(userDetail.getEmail())
+                    .phone(userDetail.getPhone())
+                    .build();
+
+            customerName = userDetail.getName();
+        }
 
         return DeliveryDto.builder()
                 .id(delivery.getId())
@@ -518,15 +553,16 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .type(delivery.getType())
                 .status(delivery.getStatus())
                 .invoice(mapToDto(delivery.getInvoice()))
-                .contactMini(new ContactMiniDto(delivery.getCustomer()))
-                .customerId(delivery.getCustomer() != null ? delivery.getCustomer().getId() : null)
-                .customerName(delivery.getCustomer() != null ? delivery.getCustomer().getName() : null)
+                .customerId(delivery.getCustomerId())
+                .contactMini(contactMini)
+                .customerName(customerName)
                 .scheduledDate(delivery.getScheduledDate())
                 .shippedDate(delivery.getShippedDate())
                 .deliveredDate(delivery.getDeliveredDate())
                 .deliveryAddress(delivery.getDeliveryAddress())
                 .contactPerson(delivery.getContactPerson())
                 .contactPhone(delivery.getContactPhone())
+                .remarks(delivery.getRemarks())
                 .build();
     }
 
@@ -549,7 +585,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .id(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .salesOrderId(invoice.getSalesOrder() != null ? invoice.getSalesOrder().getId() : null)
-                .customerName(invoice.getCustomer().getName())
+                .customerId(invoice.getCustomerId())
                 .invoiceDate(invoice.getInvoiceDate())
                 .status(invoice.getStatus())
                 .subTotal(invoice.getSubTotal())

@@ -1,9 +1,9 @@
 package com.ezh.Inventory.sales.payment.dto;
 
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceMiniDto;
 import com.ezh.Inventory.sales.payment.entity.PaymentMethod;
 import com.ezh.Inventory.sales.payment.entity.PaymentStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -19,7 +19,7 @@ public class PaymentDto {
     private Long id;
     private Long tenantId;
     private String paymentNumber;
-    private ContactMiniDto contactMini;
+    private UserMiniDto contactMini;
     private Long customerId;
     private String customerName;
     private Date paymentDate;

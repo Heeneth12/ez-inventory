@@ -1,8 +1,8 @@
 package com.ezh.Inventory.sales.order.dto;
 
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -21,7 +21,7 @@ public class SalesOrderDto {
     private Long warehouseId;
     private String orderNumber;   // SO-001, SO-2025-001
     private Date orderDate;
-    private ContactMiniDto contactMini;
+    private UserMiniDto contactMini;
     private Long customerId;      // Contact ID (Customer)
     private String customerName;
     private String paymentTerms;// "Net 30", "Advance", etc.

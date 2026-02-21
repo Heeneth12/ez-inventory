@@ -16,8 +16,7 @@ CREATE TABLE sales_order (
     total_discount DECIMAL(18, 2) DEFAULT 0,
     total_tax DECIMAL(18, 2) DEFAULT 0,
     grand_total DECIMAL(18, 2) NOT NULL DEFAULT 0,
-    remarks VARCHAR(500),
-    CONSTRAINT fk_sales_order_customer FOREIGN KEY (customer_id) REFERENCES contact(id) ON DELETE RESTRICT
+    remarks VARCHAR(500)
 );
 
 CREATE INDEX idx_sales_order_tenant_id ON sales_order(tenant_id);
@@ -70,8 +69,7 @@ CREATE TABLE invoice (
     amount_paid DECIMAL(18, 2) NOT NULL,
     balance DECIMAL(18, 2) NOT NULL,
     remarks VARCHAR(500),
-    CONSTRAINT fk_invoice_sales_order FOREIGN KEY (sales_order_id) REFERENCES sales_order(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_invoice_customer FOREIGN KEY (customer_id) REFERENCES contact(id) ON DELETE RESTRICT
+    CONSTRAINT fk_invoice_sales_order FOREIGN KEY (sales_order_id) REFERENCES sales_order(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX idx_invoice_tenant_id ON invoice(tenant_id);
@@ -122,8 +120,7 @@ CREATE TABLE payment (
     bank_name VARCHAR(255),
     remarks VARCHAR(500),
     allocated_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
-    unallocated_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
-    CONSTRAINT fk_payment_customer FOREIGN KEY (customer_id) REFERENCES contact(id) ON DELETE RESTRICT
+    unallocated_amount DECIMAL(18, 2) NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_payment_tenant_id ON payment(tenant_id);
@@ -179,6 +176,7 @@ CREATE TABLE delivery (
     customer_id BIGINT NOT NULL,
     type VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    employee_id BIGINT,
     delivery_person_id BIGINT, -- Storing ID only, external service
     scheduled_date TIMESTAMP,
     shipped_date TIMESTAMP,
@@ -189,7 +187,6 @@ CREATE TABLE delivery (
     remarks TEXT,
     route_id BIGINT,
     CONSTRAINT fk_delivery_invoice FOREIGN KEY (invoice_id) REFERENCES invoice(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_delivery_customer FOREIGN KEY (customer_id) REFERENCES contact(id) ON DELETE RESTRICT,
     CONSTRAINT fk_delivery_route FOREIGN KEY (route_id) REFERENCES delivery_route(id) ON DELETE SET NULL
 );
 

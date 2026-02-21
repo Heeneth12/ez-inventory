@@ -36,7 +36,7 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
                   AND (:id IS NULL OR d.id = :id)
                   AND (:deliveryNumber IS NULL OR d.deliveryNumber LIKE %:deliveryNumber%)
                   AND (:invoiceId IS NULL OR d.invoice.id = :invoiceId)
-                  AND (:customerId IS NULL OR d.customer.id = :customerId)
+                  AND (:customerId IS NULL OR d.customerId = :customerId)
                   AND (:type IS NULL OR d.type = :type)
                   AND (:status IS NULL OR d.status = :status)
                   AND (:scheduledDate IS NULL OR d.scheduledDate >= :scheduledDate)

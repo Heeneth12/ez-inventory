@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.invoice.entity;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
@@ -36,9 +35,8 @@ public class Invoice extends CommonSerializable {
     @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder; // Which Sales Order this invoice belongs to
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Contact customer;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50, nullable = false)

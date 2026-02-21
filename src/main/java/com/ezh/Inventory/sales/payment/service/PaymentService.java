@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.payment.service;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.sales.payment.dto.*;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -19,7 +18,7 @@ public interface PaymentService {
 
     Page<PaymentDto> getAllPayments(PaymentFilter filter, Integer page, Integer size) throws CommonException;
 
-    CommonResponse createCreditNote(Contact customer, BigDecimal amount, String returnRefNumber) throws CommonException;
+    CommonResponse createCreditNote(Long customerId, BigDecimal amount, String returnRefNumber) throws CommonException;
 
     PaymentDto getPayment(Long PaymentId) throws CommonException;
 

@@ -140,7 +140,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
         SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
 
         paymentService.createCreditNote(
-                invoice.getCustomer(),
+                invoice.getCustomerId(),
                 totalRefundAmount,
                 savedReturn.getReturnNumber());
 

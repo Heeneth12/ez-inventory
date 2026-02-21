@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.payment.entity;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,9 +24,8 @@ public class Payment extends CommonSerializable {
     @Column(name = "payment_number", nullable = false, unique = true, length = 40)
     private String paymentNumber; // PAY-2025-0001
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Contact customer;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Column(name = "payment_date", nullable = false)
     private Date paymentDate;

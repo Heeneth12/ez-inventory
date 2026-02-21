@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.invoice.service;
 
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
 import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.items.entity.Item;
@@ -25,6 +24,8 @@ import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -37,10 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,6 +54,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final ContactRepository contactRepository;
     private final StockService stockService;
     private final DeliveryService deliveryService;
+    private final AuthServiceClient authServiceClient;
 
 
     @Override
@@ -65,16 +64,13 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         SalesOrder salesOrder = getOrCreateSalesOrder(dto, tenantId);
 
-        Contact contact = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.NOT_FOUND));
-
         Invoice invoice = Invoice.builder()
                 .tenantId(tenantId)
                 .warehouseId(salesOrder.getWarehouseId())
                 .invoiceNumber(DocumentNumberUtil.generate(DocPrefix.INV))
                 .invoiceDate(new Date())
                 .salesOrder(salesOrder)
-                .customer(contact)
+                .customerId(dto.getCustomerId())
                 .status(InvoiceStatus.PENDING)
                 .paymentStatus(InvoicePaymentStatus.UNPAID)
                 .deliveryStatus(InvoiceDeliveryStatus.PENDING)
@@ -163,7 +159,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice invoice = invoiceRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
 
-        return mapToDto(invoice);
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(invoice.getCustomerId()));
+        return mapToDto(invoice, customerMap, true);
     }
 
     @Override
@@ -186,7 +183,15 @@ public class InvoiceServiceImpl implements InvoiceService {
                 pageable
         );
 
-        return invoices.map(this::mapToDto);
+        Map<Long, UserMiniDto> customerMap = new HashMap<>();
+        List<Long> customerIds = invoices.getContent().stream()
+                    .map(Invoice::getCustomerId)
+                    .distinct()
+                    .toList();
+        customerMap = authServiceClient.getBulkUserDetails(customerIds);
+        final Map<Long, UserMiniDto> finalMap = customerMap;
+
+        return invoices.map(inv -> mapToDto(inv, finalMap, true));
     }
 
 
@@ -223,8 +228,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 filter.getCustomerId(),
                 filter.getWarehouseId()
         );
-
-        return invoices.stream().map(this::mapToDto).toList();
+        final Map<Long, UserMiniDto> finalMap = new HashMap<>();
+        return invoices.stream().map(inv -> mapToDto(inv, finalMap, false)).toList();
     }
 
     private void processInvoiceItems(Invoice invoice, List<InvoiceItemCreateDto> itemDtos) {
@@ -414,7 +419,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         SalesOrder newSo = SalesOrder.builder()
                 .tenantId(tenantId)
                 .warehouseId(dto.getWarehouseId())
-                .customer(contact)
+                .customerId(dto.getCustomerId())
                 .orderNumber(DocumentNumberUtil.generate(DocPrefix.SO)) // Unique prefix for Direct Bills
                 .orderDate(new Date())
                 .status(SalesOrderStatus.CREATED)
@@ -639,7 +644,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         stockService.updateStock(stockUpdate);
     }
 
-    public InvoiceDto mapToDto(Invoice invoice) {
+    private InvoiceDto mapToDto(Invoice invoice, Map<Long, UserMiniDto> customerMap, boolean includeContact) {
         List<InvoiceItemDto> itemDtos = invoice.getItems().stream()
                 .map(item -> InvoiceItemDto.builder()
                         .id(item.getId())
@@ -648,43 +653,46 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .sku(item.getSku())
                         .batchNumber(item.getBatchNumber())
                         .quantity(item.getQuantity())
-                        .discountAmount(item.getDiscountAmount()) // Add this
-                        .taxAmount(item.getTaxAmount())
                         .unitPrice(item.getUnitPrice())
+                        .discountAmount(item.getDiscountAmount())
+                        .taxAmount(item.getTaxAmount())
                         .lineTotal(item.getLineTotal())
                         .build())
-                .collect(Collectors.toList());
+                .toList();
 
-        ContactMiniDto contactMini = ContactMiniDto
-                .builder()
-                .id(invoice.getCustomer().getId())
-                .contactCode(invoice.getCustomer().getContactCode())
-                .name(invoice.getCustomer().getName())
-                .build();
+        UserMiniDto contactMini = null;
+
+        // Fetch from map if toggle is on
+        if (includeContact && customerMap != null) {
+            UserMiniDto userDetail = customerMap.getOrDefault(invoice.getCustomerId(), new UserMiniDto());
+
+            contactMini = UserMiniDto.builder()
+                    .id(userDetail.getId())
+                    .userType(userDetail.getUserType())
+                    .userUuid(userDetail.getUserUuid())
+                    .name(userDetail.getName())
+                    .email(userDetail.getEmail())
+                    .phone(userDetail.getPhone())
+                    .build();
+        }
 
         return InvoiceDto.builder()
                 .id(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
-                .salesOrderId(invoice.getSalesOrder() != null ? invoice.getSalesOrder().getId() : null)
+                .salesOrderId(invoice.getSalesOrder().getId())
+                .customerId(invoice.getCustomerId())
                 .contactMini(contactMini)
-                .customerId(invoice.getCustomer().getId())
-                .customerName(invoice.getCustomer().getName())
                 .invoiceDate(invoice.getInvoiceDate())
-                .totalDiscount(invoice.getTotalDiscount()) // Add this
-                .totalTax(invoice.getTotalTax())           // Add this
                 .status(invoice.getStatus())
                 .deliveryStatus(invoice.getDeliveryStatus())
                 .paymentStatus(invoice.getPaymentStatus())
                 .subTotal(invoice.getSubTotal())
+                .totalDiscount(invoice.getTotalDiscount())
+                .totalTax(invoice.getTotalTax())
                 .amountPaid(invoice.getAmountPaid())
                 .grandTotal(invoice.getGrandTotal())
                 .balance(invoice.getBalance())
                 .items(itemDtos)
                 .build();
-    }
-
-    private String generateInvoiceNumber() {
-        int random = new Random().nextInt(9000) + 1000;
-        return "INV-" + System.currentTimeMillis() + "-" + random;
     }
 }

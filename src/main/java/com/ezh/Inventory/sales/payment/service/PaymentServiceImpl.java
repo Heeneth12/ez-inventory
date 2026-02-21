@@ -1,7 +1,5 @@
 package com.ezh.Inventory.sales.payment.service;
 
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceMiniDto;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
@@ -17,6 +15,8 @@ import com.ezh.Inventory.sales.payment.repository.PaymentRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,20 +40,18 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentAllocationRepository allocationRepository;
     private final InvoiceRepository invoiceRepository;
     private final ContactRepository contactRepository;
+    private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
     public CommonResponse recordPayment(PaymentCreateDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        Contact customer = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.NOT_FOUND));
-
         // 1. Create Payment Header (Source of Funds)
         Payment payment = Payment.builder()
                 .tenantId(tenantId)
                 .paymentNumber("PAY-" + System.currentTimeMillis())
-                .customer(customer)
+                .customerId(dto.getCustomerId())
                 .paymentDate(new Date())
                 .amount(dto.getTotalAmount())
                 .status(PaymentStatus.COMPLETED)
@@ -91,6 +87,8 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findByIdAndTenantId(invoiceId, tenantId)
                 .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
 
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(invoice.getCustomerId()));
+
         // 2. Fetch History
         List<PaymentAllocation> history = allocationRepository
                 .findByInvoiceIdAndTenantIdOrderByAllocationDateDesc(invoiceId, tenantId);
@@ -117,8 +115,8 @@ public class PaymentServiceImpl implements PaymentService {
         return InvoicePaymentSummaryDto.builder()
                 .invoiceId(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
-                .customerId(invoice.getCustomer().getId())
-                .customerName(invoice.getCustomer().getName())
+                .customerId(customerMap.get(invoice.getCustomerId()).getId())
+                .customerName(customerMap.get(invoice.getCustomerId()).getName())
                 .invoiceDate(invoice.getInvoiceDate())
                 .status(invoice.getStatus())
                 .grandTotal(invoice.getGrandTotal())
@@ -161,33 +159,44 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(readOnly = true)
     public Page<PaymentDto> getAllPayments(PaymentFilter filter, Integer page, Integer size) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<Payment> payments = paymentRepository.getAllPayments(tenantId,
-                filter.getId(), filter.getCustomerId(), filter.getStatus(),
-                filter.getPaymentMethod(), filter.getPaymentNumber(),
-                pageable);
+        Page<Payment> payments = paymentRepository.getAllPayments(
+                tenantId, filter.getId(), filter.getCustomerId(), filter.getStatus(),
+                filter.getPaymentMethod(), filter.getPaymentNumber(), pageable);
 
-        return payments.map(p -> mapToDto(p, false));
+        // Bulk fetch customer names for the page
+        List<Long> customerIds = payments.getContent().stream()
+                .map(Payment::getCustomerId)
+                .distinct()
+                .toList();
+
+        Map<Long, UserMiniDto> customerMap = new HashMap<>();
+        if (!customerIds.isEmpty()) {
+            customerMap = authServiceClient.getBulkUserDetails(customerIds);
+        }
+
+        final Map<Long, UserMiniDto> finalMap = customerMap;
+        return payments.map(p -> mapToDto(p, finalMap, true, false));
     }
 
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentDto getPayment(Long PaymentId) throws CommonException {
+    public PaymentDto getPayment(Long paymentId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        Payment payment = paymentRepository.findByIdAndTenantId(PaymentId,tenantId)
-                .orElseThrow(() -> new CommonException("", HttpStatus.NOT_FOUND));
+        Payment payment = paymentRepository.findByIdAndTenantId(paymentId, tenantId)
+                .orElseThrow(() -> new CommonException("Payment not found", HttpStatus.NOT_FOUND));
 
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(payment.getCustomerId()));
 
-        return mapToDto(payment, true);
+        return mapToDto(payment, customerMap, true, true);
     }
 
     @Override
     @Transactional()
-    public CommonResponse createCreditNote(Contact customer, BigDecimal amount, String returnRefNumber) throws CommonException {
+    public CommonResponse createCreditNote(Long customerId, BigDecimal amount, String returnRefNumber) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         String creditNoteNumber = "CN-" + System.currentTimeMillis();
@@ -195,7 +204,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment creditNote = Payment.builder()
                 .tenantId(tenantId)
                 .paymentNumber(creditNoteNumber)
-                .customer(customer)
+                .customerId(customerId)
                 .paymentDate(new Date())
                 .amount(amount)
                 // Status is RECEIVED because the company technically "received" the value back
@@ -309,14 +318,11 @@ public class PaymentServiceImpl implements PaymentService {
     public CommonResponse<?> addMoneyToWallet(WalletAddDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        Contact customer = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.NOT_FOUND));
-
         // Create Payment as an "Advance"
         Payment payment = Payment.builder()
                 .tenantId(tenantId)
                 .paymentNumber("ADV-" + System.currentTimeMillis())
-                .customer(customer)
+                .customerId(dto.getCustomerId())
                 .paymentDate(new Date())
                 .amount(dto.getAmount())
                 .status(PaymentStatus.COMPLETED)
@@ -393,16 +399,14 @@ public class PaymentServiceImpl implements PaymentService {
         invoiceRepository.save(invoice);
     }
 
-    private PaymentDto mapToDto(Payment payment, Boolean subDetails) {
+    private PaymentDto mapToDto(Payment payment, Map<Long, UserMiniDto> customerMap, boolean includeContact, boolean subDetails) {
         if (payment == null) return null;
 
-        // 1. Map the allocations to the
+        // 1. Map Allocation Details (Invoices)
         List<InvoiceMiniDto> invoiceDetails = new ArrayList<>();
-
         if (payment.getAllocations() != null && subDetails) {
             invoiceDetails = payment.getAllocations().stream()
                     .map(allocation -> {
-                        // Get the invoice entity from the allocation
                         var invoice = allocation.getInvoice();
                         return InvoiceMiniDto.builder()
                                 .id(invoice.getId())
@@ -413,20 +417,36 @@ public class PaymentServiceImpl implements PaymentService {
                                 .balance(invoice.getBalance())
                                 .status(invoice.getStatus())
                                 .paymentStatus(invoice.getPaymentStatus())
-                                .customerId(invoice.getCustomer().getId())
+                                .customerId(invoice.getCustomerId()) // Now using Long ID
                                 .build();
                     })
                     .collect(Collectors.toList());
+        }
+
+        // 2. Resolve Customer Info from external map
+        UserMiniDto contactMini = null;
+        String customerName = null;
+        if (includeContact && customerMap != null) {
+            UserMiniDto userDetail = customerMap.getOrDefault(payment.getCustomerId(), new UserMiniDto());
+            contactMini = UserMiniDto.builder()
+                    .id(userDetail.getId())
+                    .userType(userDetail.getUserType())
+                    .userUuid(userDetail.getUserUuid())
+                    .name(userDetail.getName())
+                    .email(userDetail.getEmail())
+                    .phone(userDetail.getPhone())
+                    .build();
+            customerName = userDetail.getName();
         }
 
         return PaymentDto.builder()
                 .id(payment.getId())
                 .tenantId(payment.getTenantId())
                 .paymentNumber(payment.getPaymentNumber())
-                .customerId(payment.getCustomer().getId())
-                .customerName(payment.getCustomer().getName())
+                .customerId(payment.getCustomerId())
+                .customerName(customerName)
+                .contactMini(contactMini)
                 .paymentDate(payment.getPaymentDate())
-                .contactMini(new ContactMiniDto(payment.getCustomer()))
                 .amount(payment.getAmount())
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())

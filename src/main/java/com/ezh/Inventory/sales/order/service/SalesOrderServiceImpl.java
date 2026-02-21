@@ -5,8 +5,6 @@ import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
 import com.ezh.Inventory.approval.entity.ApprovalStatus;
 import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
-import com.ezh.Inventory.contacts.dto.ContactMiniDto;
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
@@ -22,6 +20,8 @@ import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.common.events.ApprovalDecisionEvent;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -37,9 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -50,20 +49,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
     private final ApprovalService approvalService;
+    private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
     public CommonResponse createSalesOrder(SalesOrderDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        Contact contact = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.BAD_REQUEST));
-
         // 1. Initialize Header
         SalesOrder salesOrder = SalesOrder.builder()
                 .tenantId(tenantId)
                 .warehouseId(dto.getWarehouseId())
-                .customer(contact)
+                .customerId(dto.getCustomerId())
                 .orderNumber(DocumentNumberUtil.generate(DocPrefix.SO))
                 .orderDate(new Date())
                 .status(SalesOrderStatus.CREATED)
@@ -133,8 +130,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         SalesOrder salesOrder = salesOrderRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Sales Order not found", HttpStatus.BAD_REQUEST));
 
-        Contact contact = contactRepository.findByIdAndTenantId(dto.getCustomerId(), tenantId)
-                .orElseThrow(() -> new CommonException("Customer not found", HttpStatus.BAD_REQUEST));
 
         // Validation: Only update if CREATED
         if (salesOrder.getStatus() != SalesOrderStatus.CREATED) {
@@ -143,7 +138,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // Update basic fields
         salesOrder.setWarehouseId(dto.getWarehouseId());
-        salesOrder.setCustomer(contact);
+        salesOrder.setCustomerId(dto.getCustomerId());
         salesOrder.setRemarks(dto.getRemarks());
         if (dto.getOrderDate() != null) salesOrder.setOrderDate(dto.getOrderDate());
 
@@ -170,7 +165,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         SalesOrder so = salesOrderRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Order not found", HttpStatus.BAD_REQUEST));
 
-        return mapToDto(so);
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(so.getCustomerId()));
+
+        return mapToDto(so, customerMap, true);
     }
 
     @Override
@@ -179,17 +176,32 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size);
 
-        // You can add Specification/Filter logic here based on 'SalesOrderFilter'
         Page<SalesOrder> result = salesOrderRepository.getAllSalesOrders(
                 tenantId, filter.getId(), filter.getStatus(), filter.getCustomerId(),
                 filter.getWarehouseId(), filter.getSearchQuery(), filter.getFromDate(),
-                filter.getToDate(), pageable); // Replace with findByTenantId logic if repository supports it
+                filter.getToDate(), pageable);
 
-        return result.map(this::mapToDto);
+        // 1. Collect all unique Customer IDs from the page
+        Set<Long> customerIds = result.getContent().stream()
+                .map(SalesOrder::getCustomerId)
+                .collect(Collectors.toSet());
+
+        // 2. Fetch details from external service in ONE call
+        Map<Long, UserMiniDto> finalCustomerDetails = new HashMap<>();
+        if (!customerIds.isEmpty()) {
+            finalCustomerDetails = authServiceClient.getBulkUserDetails(new ArrayList<>(customerIds));
+        }
+
+        // 3. Map to DTO using the fetched details
+        final Map<Long, UserMiniDto> customerMapLookup = finalCustomerDetails;
+        return result.map(so -> mapToDto(so, customerMapLookup, true));
     }
 
-    public List<SalesOrderDto> getAllSalesOrders(SalesOrderFilter filter) throws CommonException{
+    @Override
+    @Transactional(readOnly = true)
+    public List<SalesOrderDto> getAllSalesOrders(SalesOrderFilter filter) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
         List<SalesOrder> orders = salesOrderRepository.getAllSalesOrders(
                 tenantId,
                 filter.getId(),
@@ -197,8 +209,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 filter.getCustomerId(),
                 filter.getWarehouseId()
         );
-        return orders.stream().map(this::mapToDto).toList();
 
+        return orders.stream()
+                .map(so -> mapToDto(so, null, false))
+                .toList();
     }
 
     @Override
@@ -390,15 +404,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setGrandTotal(grandTotal.max(BigDecimal.ZERO));
     }
 
-    private SalesOrderDto mapToDto(SalesOrder so) {
+    private SalesOrderDto mapToDto(SalesOrder so, Map<Long, UserMiniDto> customerMap, boolean includeContact) {
         List<SalesOrderItemDto> itemDtos = new ArrayList<>();
 
+        // Map items (Existing logic)
         if (so.getItems() != null) {
             for (SalesOrderItem item : so.getItems()) {
                 itemDtos.add(SalesOrderItemDto.builder()
                         .id(item.getId())
                         .itemId(item.getItemId())
-                        .itemName(item.getItemName()) // Read from Snapshot
+                        .itemName(item.getItemName())
                         .orderedQty(item.getOrderedQty())
                         .invoicedQty(item.getInvoicedQty())
                         .unitPrice(item.getUnitPrice())
@@ -410,12 +425,24 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
-        ContactMiniDto contactMiniDto = ContactMiniDto
-                .builder()
-                .id(so.getCustomer().getId())
-                .contactCode(so.getCustomer().getContactCode())
-                .name(so.getCustomer().getName())
-                .build();
+        // Logic for Conditional Contact Mapping
+        UserMiniDto contactMini = null;
+        String customerName = null;
+
+        if (includeContact && customerMap != null) {
+            UserMiniDto userDetail = customerMap.getOrDefault(so.getCustomerId(), new UserMiniDto());
+
+            contactMini = UserMiniDto.builder()
+                    .id(userDetail.getId())
+                    .userType(userDetail.getUserType())
+                    .userUuid(userDetail.getUserUuid())
+                    .name(userDetail.getName())
+                    .email(userDetail.getEmail())
+                    .phone(userDetail.getPhone())
+                    .build();
+
+            customerName = userDetail.getName();
+        }
 
         return SalesOrderDto.builder()
                 .id(so.getId())
@@ -424,17 +451,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(so.getStatus())
                 .source(so.getSource())
                 .warehouseId(so.getWarehouseId())
-                .contactMini(contactMiniDto)
-                .customerId(so.getCustomer().getId())
-                .customerName(so.getCustomer().getName())
+                .customerId(so.getCustomerId()) // Always include ID
+                .contactMini(contactMini)       // Null if includeContact is false
+                .customerName(customerName)     // Null if includeContact is false
                 .remarks(so.getRemarks())
                 .subTotal(so.getSubTotal())
                 .totalDiscount(so.getTotalDiscount())
                 .totalTax(so.getTotalTax())
                 .totalDiscountPer(
                         so.getSubTotal().compareTo(BigDecimal.ZERO) > 0
-                                ? so.getTotalDiscount()
-                                .multiply(BigDecimal.valueOf(100))
+                                ? so.getTotalDiscount().multiply(BigDecimal.valueOf(100))
                                 .divide(so.getSubTotal(), 2, RoundingMode.HALF_UP)
                                 : BigDecimal.ZERO
                 )

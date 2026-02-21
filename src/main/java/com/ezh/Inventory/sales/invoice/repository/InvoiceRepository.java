@@ -23,7 +23,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Page<Invoice> findByTenantId(Long tenantId, Pageable pageable);
 
-    @Query("SELECT SUM(i.balance) FROM Invoice i WHERE i.customer.id = :customerId AND i.tenantId = :tenantId")
+    @Query("SELECT SUM(i.balance) FROM Invoice i WHERE i.customerId = :customerId AND i.tenantId = :tenantId")
     BigDecimal getTotalBalanceByCustomer(@Param("customerId") Long customerId, @Param("tenantId") Long tenantId);
 
     @Query("""
@@ -32,7 +32,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
                   AND (:id IS NULL OR i.id = :id)
                   AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
                   AND (:status IS NULL OR i.status = :status)
-                  AND (:customerId IS NULL OR i.customer.id = :customerId)
+                  AND (:customerId IS NULL OR i.customerId = :customerId)
                   AND (:warehouseId IS NULL OR i.warehouseId = :warehouseId)
             """)
     List<Invoice> searchInvoices(
@@ -50,7 +50,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
                   AND (:id IS NULL OR i.id = :id)
                   AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
                   AND (:status IS NULL OR i.status = :status)
-                  AND (:customerId IS NULL OR i.customer.id = :customerId)
+                  AND (:customerId IS NULL OR i.customerId = :customerId)
                   AND (:warehouseId IS NULL OR i.warehouseId = :warehouseId)
             """)
     Page<Invoice> getAllInvoices(

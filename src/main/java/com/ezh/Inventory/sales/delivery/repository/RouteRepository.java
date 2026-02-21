@@ -23,7 +23,6 @@ public interface RouteRepository extends JpaRepository<Route, Long> {
 
     @Query("SELECT r FROM Route r " +
             "LEFT JOIN FETCH r.deliveries d " +
-            "LEFT JOIN FETCH d.customer " +
             "WHERE r.id = :routeId AND r.tenantId = :tenantId")
     Optional<Route> findByIdWithDeliveries(@Param("routeId") Long routeId, @Param("tenantId") Long tenantId);
 }

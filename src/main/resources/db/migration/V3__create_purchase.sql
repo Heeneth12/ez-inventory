@@ -65,7 +65,7 @@ CREATE TABLE purchase_order (
     tenant_id BIGINT NOT NULL,
     vendor_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
-    purchase_request_id NOT NULL,
+    purchase_request_id BIGINT NOT NULL,
     order_number VARCHAR(100) UNIQUE NOT NULL,
     order_date BIGINT,
     expected_delivery_date BIGINT,
@@ -75,7 +75,7 @@ CREATE TABLE purchase_order (
     flat_tax DECIMAL(18, 2) DEFAULT 0,
     total_discount DECIMAL(18, 2) DEFAULT 0,
     total_tax DECIMAL(18, 2) DEFAULT 0,
-    grand_total DECIMAL(18, 2) DEFAULT 0;
+    grand_total DECIMAL(18, 2) DEFAULT 0,
     notes TEXT
 );
 
@@ -93,7 +93,7 @@ CREATE TABLE purchase_order_item (
     ordered_qty INTEGER NOT NULL,
     received_qty INTEGER NOT NULL DEFAULT 0,
     discount DECIMAL(18, 2) DEFAULT 0,
-    tax DECIMAL(18, 2) DEFAULT 0;
+    tax DECIMAL(18, 2) DEFAULT 0,
     unit_price DECIMAL(18, 2),
     line_total DECIMAL(18, 2),
 
@@ -105,7 +105,6 @@ CREATE TABLE purchase_order_item (
 -- Create indexes for purchase_order
 CREATE INDEX idx_purchase_order_uuid ON purchase_order(uuid);
 CREATE INDEX idx_purchase_order_tenant_id ON purchase_order(tenant_id);
-CREATE INDEX idx_purchase_order_supplier_id ON purchase_order(supplier_id);
 CREATE INDEX idx_purchase_order_po_status ON purchase_order(po_status);
 CREATE INDEX idx_po_item_purchase_order_id ON purchase_order_item(purchase_order_id);
 
@@ -180,6 +179,7 @@ CREATE TABLE purchase_return (
 
     -- Purchase return specific fields
     tenant_id BIGINT NOT NULL,
+    pr_number VARCHAR(50) NOT NULL,
     warehouse_id BIGINT NOT NULL,
     goods_receipt_id BIGINT,
     vendor_id BIGINT NOT NULL,

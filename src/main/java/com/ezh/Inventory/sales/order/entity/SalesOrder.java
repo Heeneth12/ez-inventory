@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.order.entity;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,9 +27,8 @@ public class SalesOrder extends CommonSerializable {
     @Column(name = "order_number", nullable = false, unique = true, length = 40)
     private String orderNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Contact customer;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Column(name = "order_date", nullable = false)
     private Date orderDate;

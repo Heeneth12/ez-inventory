@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class UserMiniDto {
     private Long id;
     private String userType;
-    private String UserUuid;
+    private String userUuid;
     private String name;
     private String email;
     private String phone;

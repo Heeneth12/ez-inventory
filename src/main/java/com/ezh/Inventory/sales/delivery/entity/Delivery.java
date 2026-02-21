@@ -1,7 +1,5 @@
 package com.ezh.Inventory.sales.delivery.entity;
 
-import com.ezh.Inventory.contacts.entiry.Contact;
-import com.ezh.Inventory.employee.entity.Employee;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
@@ -31,9 +29,8 @@ public class Delivery extends CommonSerializable {
     @JoinColumn(name = "invoice_id", nullable = false)
     private Invoice invoice;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Contact customer;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 50)
@@ -43,9 +40,8 @@ public class Delivery extends CommonSerializable {
     @Column(name = "status", nullable = false, length = 50)
     private ShipmentStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delivery_person_id", nullable = true)
-    private Employee deliveryPerson;
+    @Column(name = "employee_id")
+    private Long deliveryPerson;
 
     @Column(name = "scheduled_date")
     private Date scheduledDate;
