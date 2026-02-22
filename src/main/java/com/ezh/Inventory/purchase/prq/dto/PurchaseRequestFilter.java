@@ -1,8 +1,14 @@
 package com.ezh.Inventory.purchase.prq.dto;
 
+import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.utils.common.CommonFilter;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -11,4 +17,5 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 public class PurchaseRequestFilter extends CommonFilter {
     private Long vendorId;
+    private List<PrqStatus> prqStatuses;
 }

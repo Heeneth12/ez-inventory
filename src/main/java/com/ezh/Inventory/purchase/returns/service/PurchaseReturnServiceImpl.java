@@ -226,7 +226,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
         Page<PurchaseReturn> prPage = returnRepository.findAllPR(
                 tenantId,
                 vendorId,
-                filter.getPurchaseReturnStatuses(),
+                filter.getPrStatuses(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),
                 filter.getEndDateTime(),

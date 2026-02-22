@@ -16,6 +16,6 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PurchaseReturnFilter extends CommonFilter {
-    private List<ReturnStatus> purchaseReturnStatuses;
+    private List<ReturnStatus> prStatuses;
     private Long vendorId;
 }

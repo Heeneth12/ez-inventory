@@ -174,7 +174,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 tenantId,
                 filter.getId(),
                 vendorId,
-                filter.getStatuses(),
+                filter.getPrqStatuses(),
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),
                 filter.getEndDateTime(),

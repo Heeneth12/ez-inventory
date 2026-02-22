@@ -1,5 +1,6 @@
 package com.ezh.Inventory.purchase.prq.repository;
 
+import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.entity.PurchaseRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +41,7 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
             @Param("vendorId") Long vendorId,
-            @Param("statuses") List<String> statuses, // Ensure this matches your Enum or String correctly
+            @Param("statuses") List<PrqStatus> statuses, // Ensure this matches your Enum or String correctly
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,
