@@ -1,9 +1,9 @@
 package com.ezh.Inventory.purchase.prq.controller;
 
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
+import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestFilter;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
 import com.ezh.Inventory.purchase.prq.service.PurchaseRequestService;
-import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -37,7 +37,7 @@ public class PurchaseRequestController {
     }
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<PurchaseRequestDto>> getAllPrq(@RequestBody CommonFilter filter,
+    public ResponseResource<Page<PurchaseRequestDto>> getAllPrq(@RequestBody PurchaseRequestFilter filter,
                                                                 @RequestParam(defaultValue = "0") int page,
                                                                 @RequestParam(defaultValue = "10") int size) throws CommonException {
         log.info("Fetching Purchase Requests page={} size={} with filter={}", page, size, filter);

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,7 +22,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     SELECT po FROM PurchaseOrder po
     WHERE po.tenantId = :tenantId
       AND (:id IS NULL OR po.id = :id)
-      AND (:status IS NULL OR po.poStatus = :status)
+      AND (:statuses IS NULL OR po.poStatus IN :statuses)
       AND (:vendorId IS NULL OR po.vendorId = :vendorId)
       AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)
       AND (
@@ -36,7 +37,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     Page<PurchaseOrder> findAllPurchaseOrders(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
-            @Param("status") PoStatus status,
+            @Param("statuses") List<PoStatus> statuses,
             @Param("vendorId") Long vendorId,
             @Param("warehouseId") Long warehouseId,
             @Param("searchQuery") String searchQuery,

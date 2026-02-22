@@ -2,6 +2,7 @@ package com.ezh.Inventory.purchase.prq.service;
 
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestDto;
+import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestFilter;
 import com.ezh.Inventory.purchase.prq.dto.PurchaseRequestItemDto;
 import com.ezh.Inventory.purchase.prq.entity.PrqSource;
 import com.ezh.Inventory.purchase.prq.entity.PrqStatus;
@@ -10,7 +11,6 @@ import com.ezh.Inventory.purchase.prq.entity.PurchaseRequestItem;
 import com.ezh.Inventory.purchase.prq.repository.PurchaseRequestRepository;
 import com.ezh.Inventory.security.UserContext;
 import com.ezh.Inventory.utils.UserContextUtil;
-import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
@@ -158,12 +158,14 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PurchaseRequestDto> getAllPrqs(Integer page, Integer size, CommonFilter filter) throws CommonException {
+    public Page<PurchaseRequestDto> getAllPrqs(Integer page, Integer size, PurchaseRequestFilter filter) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Long vendorId = null;
         if (Objects.equals(userContext.getUserType(), "VENDOR")) {
             vendorId = userContext.getUserId();
+        }else {
+            vendorId = filter.getVendorId();
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));

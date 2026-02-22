@@ -181,13 +181,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Long vendorId = null;
         if (Objects.equals(userContext.getUserType(), "VENDOR")) {
             vendorId = userContext.getUserId();
+        }else{
+            vendorId = filter.getVendorId();
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<PurchaseOrder> poPage = poRepository.findAllPurchaseOrders(
                 tenantId,
                 filter.getId(),
-                filter.getStatus() != null ? PoStatus.valueOf(filter.getStatus()) : null,
+                filter.getPoStatuses(),
                 vendorId,
                 filter.getWarehouseId(),
                 filter.getSearchQuery(),
