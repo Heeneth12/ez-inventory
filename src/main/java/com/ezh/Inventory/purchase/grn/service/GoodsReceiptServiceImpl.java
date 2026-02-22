@@ -2,6 +2,7 @@ package com.ezh.Inventory.purchase.grn.service;
 
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.purchase.grn.dto.GrnDto;
+import com.ezh.Inventory.purchase.grn.dto.GrnFilter;
 import com.ezh.Inventory.purchase.grn.dto.GrnItemDto;
 import com.ezh.Inventory.purchase.grn.entity.GoodsReceipt;
 import com.ezh.Inventory.purchase.grn.entity.GoodsReceiptItem;
@@ -39,10 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -178,13 +176,22 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<GrnDto> getAllGrns(Integer page, Integer size) throws CommonException {
+    public Page<GrnDto> getAllGrns(Integer page, Integer size, GrnFilter filter) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<GoodsReceipt> receipts = grnRepository.findByTenantId(tenantId, pageable);
+        Page<GoodsReceipt> receipts = grnRepository.findAllGrnDetails(
+                tenantId,
+                filter.getId(),
+                filter.getVendorId(),
+                filter.getGrnStatuses(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
+                pageable
+        );
 
         // Batch fetch all related data using IN clause (much better than loop)
         List<Long> grnIds = receipts.getContent().stream()

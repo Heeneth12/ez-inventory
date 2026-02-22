@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.grn.repository;
 
 import com.ezh.Inventory.purchase.grn.entity.GoodsReceipt;
+import com.ezh.Inventory.purchase.grn.entity.GrnStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,8 +17,38 @@ import java.util.Optional;
 public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long> {
 
     Optional<GoodsReceipt> findByIdAndTenantId(Long id, Long tenantId);
+
     List<GoodsReceipt> findByPurchaseOrderIdAndTenantId(Long purchaseOrderId, Long tenantId);
-    Page<GoodsReceipt> findByTenantId(Long tenantId,  Pageable pageable);
+
+    Page<GoodsReceipt> findByTenantId(Long tenantId, Pageable pageable);
+
+    @Query("""
+            SELECT grn FROM GoodsReceipt grn
+            LEFT JOIN grn.purchaseOrder po
+            WHERE grn.tenantId = :tenantId
+              AND (:id IS NULL OR grn.id = :id)
+              AND (:vendorId IS NULL OR po.vendorId = :vendorId)
+              AND (:statuses IS NULL OR grn.grnStatus IN :statuses)
+              AND (
+                    (CAST(:fromDate AS timestamp) IS NULL OR grn.createdAt >= :fromDate)
+                    AND (CAST(:toDate AS timestamp) IS NULL OR grn.createdAt <= :toDate)
+                  )
+              AND (
+                    CAST(:searchQuery AS string) IS NULL 
+                    OR LOWER(grn.grnNumber) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+                    OR LOWER(grn.vendorInvoiceNo) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+                  )
+            """)
+    Page<GoodsReceipt> findAllGrnDetails(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("vendorId") Long vendorId,
+            @Param("statuses") List<GrnStatus> statuses,
+            @Param("searchQuery") String searchQuery,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Pageable pageable
+    );
 
     /**
      * Optimized query that fetches GoodsReceipt with ALL related entities in a single query.
@@ -24,15 +56,15 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long
      * Fetches: PurchaseOrder, GoodsReceiptItems, Items, PurchaseOrderItems, PurchaseReturns, and PurchaseReturnItems.
      */
     @Query("""
-        SELECT DISTINCT gr FROM GoodsReceipt gr
-        LEFT JOIN FETCH gr.purchaseOrder po
-        LEFT JOIN FETCH gr.items gri
-        LEFT JOIN FETCH gri.item
-        LEFT JOIN FETCH gri.poItem
-        LEFT JOIN FETCH gr.purchaseReturns pr
-        LEFT JOIN FETCH pr.purchaseReturnItems
-        WHERE gr.id = :grnId AND gr.tenantId = :tenantId
-        """)
+            SELECT DISTINCT gr FROM GoodsReceipt gr
+            LEFT JOIN FETCH gr.purchaseOrder po
+            LEFT JOIN FETCH gr.items gri
+            LEFT JOIN FETCH gri.item
+            LEFT JOIN FETCH gri.poItem
+            LEFT JOIN FETCH gr.purchaseReturns pr
+            LEFT JOIN FETCH pr.purchaseReturnItems
+            WHERE gr.id = :grnId AND gr.tenantId = :tenantId
+            """)
     Optional<GoodsReceipt> findByIdWithAllRelations(@Param("grnId") Long grnId, @Param("tenantId") Long tenantId);
 
     /**
@@ -40,14 +72,14 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long
      * Much more efficient than calling findByIdWithAllRelations in a loop.
      */
     @Query("""
-        SELECT DISTINCT gr FROM GoodsReceipt gr
-        LEFT JOIN FETCH gr.purchaseOrder po
-        LEFT JOIN FETCH gr.items gri
-        LEFT JOIN FETCH gri.item
-        LEFT JOIN FETCH gri.poItem
-        LEFT JOIN FETCH gr.purchaseReturns pr
-        LEFT JOIN FETCH pr.purchaseReturnItems
-        WHERE gr.id IN :grnIds AND gr.tenantId = :tenantId
-        """)
+            SELECT DISTINCT gr FROM GoodsReceipt gr
+            LEFT JOIN FETCH gr.purchaseOrder po
+            LEFT JOIN FETCH gr.items gri
+            LEFT JOIN FETCH gri.item
+            LEFT JOIN FETCH gri.poItem
+            LEFT JOIN FETCH gr.purchaseReturns pr
+            LEFT JOIN FETCH pr.purchaseReturnItems
+            WHERE gr.id IN :grnIds AND gr.tenantId = :tenantId
+            """)
     List<GoodsReceipt> findAllByIdWithRelations(@Param("grnIds") List<Long> grnIds, @Param("tenantId") Long tenantId);
 }

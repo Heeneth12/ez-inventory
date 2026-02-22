@@ -1,6 +1,7 @@
 package com.ezh.Inventory.purchase.grn.service;
 
 import com.ezh.Inventory.purchase.grn.dto.GrnDto;
+import com.ezh.Inventory.purchase.grn.dto.GrnFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
 import org.springframework.data.domain.Page;
@@ -15,5 +16,5 @@ public interface GoodsReceiptService {
 
     List<GrnDto> getGrnHistoryForPo(Long purchaseOrderId);
 
-    Page<GrnDto> getAllGrns(Integer page, Integer size);
+    Page<GrnDto> getAllGrns(Integer page, Integer size, GrnFilter filter);
 }

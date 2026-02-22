@@ -2,8 +2,8 @@ package com.ezh.Inventory.purchase.grn.controller;
 
 
 import com.ezh.Inventory.purchase.grn.dto.GrnDto;
+import com.ezh.Inventory.purchase.grn.dto.GrnFilter;
 import com.ezh.Inventory.purchase.grn.service.GoodsReceiptService;
-import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -31,11 +31,12 @@ public class GoodsReceiptController {
         return ResponseResource.success(HttpStatus.CREATED, response, "GRN created & approved successfully");
     }
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<GrnDto>> getAllGrn(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+    @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<Page<GrnDto>> getAllGrn(@RequestBody GrnFilter filter,
+                                                    @RequestParam(defaultValue = "0") int page,
+                                                    @RequestParam(defaultValue = "10") int size) {
         log.info("Fetching GRN details page={} size={}", page, size);
-        Page<GrnDto> result = goodsReceiptService.getAllGrns(page, size);
+        Page<GrnDto> result = goodsReceiptService.getAllGrns(page, size, filter);
         return ResponseResource.success(HttpStatus.OK, result, "Purchase Orders list");
     }
 
