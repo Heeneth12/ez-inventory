@@ -163,12 +163,12 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
                 .orElseThrow(() -> new CommonException("Return record not found", HttpStatus.NOT_FOUND));
 
         // Prevent duplicate processing
-        if (pr.getPrStatus() == ReturnStatus.COMPLETED) {
-            throw new CommonException("Return is already completed and stock has been adjusted.", HttpStatus.BAD_REQUEST);
+        if (pr.getPrStatus() == ReturnStatus.RETURNED) {
+            throw new CommonException("Return is already RETURNED and stock has been adjusted.", HttpStatus.BAD_REQUEST);
         }
 
         // If moving to COMPLETED, perform the stock movement
-        if (newStatus == ReturnStatus.COMPLETED) {
+        if (newStatus == ReturnStatus.RETURNED) {
             List<PurchaseReturnItem> items = returnItemRepository.findByPurchaseReturnId(returnId);
 
             for (PurchaseReturnItem item : items) {
@@ -263,6 +263,7 @@ public class PurchaseReturnServiceImpl implements PurchaseReturnService {
                 .reason(pr.getReason())
                 .items(itemDtos)
                 .status(pr.getPrStatus())
+                .createdAt(pr.getCreatedAt())
                 .build();
     }
 

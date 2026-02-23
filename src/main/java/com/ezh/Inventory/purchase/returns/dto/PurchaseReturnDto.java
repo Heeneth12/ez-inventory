@@ -4,6 +4,7 @@ import com.ezh.Inventory.purchase.returns.entity.ReturnStatus;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
+import java.util.Date;
 import java.util.List;
 
 @Getter
@@ -21,5 +22,6 @@ public class PurchaseReturnDto {
     private String reason;
     private ReturnStatus status;
     private UserMiniDto vendorDetails;
+    private Date createdAt;
     private List<PurchaseReturnItemDto> items;
 }
