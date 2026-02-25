@@ -15,23 +15,31 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class SalesOrderDto {
-
-    private Long id;              // only for update
+    private Long id;
     private Long tenantId;
     private Long warehouseId;
-    private String orderNumber;   // SO-001, SO-2025-001
+    private String orderNumber;
     private Date orderDate;
     private UserMiniDto contactMini;
-    private Long customerId;      // Contact ID (Customer)
+    private Long customerId;
     private String customerName;
-    private String paymentTerms;// "Net 30", "Advance", etc.
-    private BigDecimal subTotal;
-    private BigDecimal totalDiscount;
-    private BigDecimal totalTax;
-    private BigDecimal totalDiscountPer;
+    private String paymentTerms;
     private SalesOrderStatus status;
     private SalesOrderSource source;
-    private BigDecimal grandTotal;
-    private List<SalesOrderItemDto> items; // CHILD ITEMS
     private String remarks;
+
+    //Financial Fields (Aligned with Entity)
+    private BigDecimal itemGrossTotal;
+    private BigDecimal itemTotalDiscount;
+    private BigDecimal itemTotalTax;
+
+    private BigDecimal flatDiscountRate;   // User inputs 2%
+    private BigDecimal flatDiscountAmount; // Backend calculates
+
+    private BigDecimal flatTaxRate;        // User inputs 5%
+    private BigDecimal flatTaxAmount;      // Backend calculates
+
+    private BigDecimal grandTotal;
+
+    private List<SalesOrderItemDto> items;
 }

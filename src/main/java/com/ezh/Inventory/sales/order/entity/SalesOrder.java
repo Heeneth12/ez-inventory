@@ -1,10 +1,9 @@
 package com.ezh.Inventory.sales.order.entity;
 
-import com.ezh.Inventory.utils.common.CommonSerializable;
+import com.ezh.Inventory.utils.AbstractFinancialHeader;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -13,10 +12,10 @@ import java.util.List;
 @Table(name = "sales_order")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class SalesOrder extends CommonSerializable {
+public class SalesOrder extends AbstractFinancialHeader {
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
@@ -41,26 +40,12 @@ public class SalesOrder extends CommonSerializable {
     @Column(name = "source", length = 50)
     private SalesOrderSource source;
 
-    @Builder.Default
-    @Column(name = "sub_total")
-    private BigDecimal subTotal = BigDecimal.ZERO;
-
-    @Builder.Default
-    @Column(name = "total_discount")
-    private BigDecimal totalDiscount = BigDecimal.ZERO;
-
-    @Builder.Default
-    @Column(name = "total_tax")
-    private BigDecimal totalTax = BigDecimal.ZERO;
-
-    @Builder.Default
-    @Column(name = "grand_total", nullable = false)
-    private BigDecimal grandTotal = BigDecimal.ZERO;
-
     @Column(name = "remarks", length = 500)
     private String remarks;
 
-    @Builder.Default
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SalesOrderItem> items = new ArrayList<>();
+
+    // The fields: itemGrossTotal, itemTotalDiscount, itemTotalTax, flatDiscountRate,
+    // flatTaxRate, and grandTotal are all inherited from AbstractFinancialHeader!
 }

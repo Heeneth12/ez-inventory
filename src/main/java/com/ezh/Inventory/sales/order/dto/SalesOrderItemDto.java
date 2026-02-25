@@ -11,14 +11,16 @@ import java.math.BigDecimal;
 @Builder
 public class SalesOrderItemDto {
     private Long id;
-    private Long itemId; // selected item ID
+    private Long itemId;
     private String itemName;
-    private Integer quantity;
     private Integer orderedQty;
-    private BigDecimal tax;
-    private Integer invoicedQty = 0;
-    private BigDecimal unitPrice;     // price before discount
-    private BigDecimal discount;
-    private BigDecimal discountPercent;   // optional per item
+    private Integer invoicedQty;
+
+    //Financial Fields (Aligned with Entity)
+    private BigDecimal unitPrice;
+    private BigDecimal discountRate;   // User inputs 10%
+    private BigDecimal discountAmount; // Backend calculates
+    private BigDecimal taxRate;        // User inputs 18%
+    private BigDecimal taxAmount;      // Backend calculates
     private BigDecimal lineTotal;
 }

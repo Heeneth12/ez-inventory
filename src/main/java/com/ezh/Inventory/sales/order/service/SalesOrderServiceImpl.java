@@ -5,18 +5,19 @@ import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
 import com.ezh.Inventory.approval.entity.ApprovalStatus;
 import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
-import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
 import com.ezh.Inventory.sales.order.dto.SalesOrderItemDto;
+import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
@@ -46,75 +47,63 @@ import java.util.stream.Collectors;
 public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final SalesOrderRepository salesOrderRepository;
-    private final ContactRepository contactRepository;
     private final ItemRepository itemRepository;
     private final ApprovalService approvalService;
     private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
-    public CommonResponse createSalesOrder(SalesOrderDto dto) throws CommonException {
+    public CommonResponse<?> createSalesOrder(SalesOrderDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        // 1. Initialize Header
-        SalesOrder salesOrder = SalesOrder.builder()
-                .tenantId(tenantId)
-                .warehouseId(dto.getWarehouseId())
-                .customerId(dto.getCustomerId())
-                .orderNumber(DocumentNumberUtil.generate(DocPrefix.SO))
-                .orderDate(new Date())
-                .status(SalesOrderStatus.CREATED)
-                .source(SalesOrderSource.SALES_TEAM)
-                .remarks(dto.getRemarks())
-                .items(new ArrayList<>())
-                .build();
+        //Initialize Header
+        SalesOrder salesOrder = new SalesOrder();
+        salesOrder.setTenantId(tenantId);
+        salesOrder.setWarehouseId(dto.getWarehouseId());
+        salesOrder.setCustomerId(dto.getCustomerId());
+        salesOrder.setOrderNumber(DocumentNumberUtil.generate(DocPrefix.SO));
+        salesOrder.setOrderDate(new Date());
+        salesOrder.setStatus(SalesOrderStatus.CREATED);
+        salesOrder.setSource(SalesOrderSource.SALES_TEAM);
+        salesOrder.setRemarks(dto.getRemarks());
+        salesOrder.setItems(new ArrayList<>());
 
-        // 2. Process Items & Apply Logic (Modularized)
-        processOrderItems(salesOrder, dto.getItems());
+        //Process Items & Calculate Financials (The Unified Pipeline)
+        processAndCalculateFinancials(salesOrder, dto);
 
-        // 3. Apply Header Level Flat Discounts/Tax & Finalize Totals
-        applyHeaderTotals(salesOrder, dto);
-
+        //Save Order (to generate ID for approval context)
         salesOrder = salesOrderRepository.save(salesOrder);
 
-        // 5. Calculate Discount Percentage for Approval Rule
-        // Formula: (Total Discount / SubTotal) * 100
-        double discountPercentage = 0.0;
-        if (salesOrder.getSubTotal().compareTo(BigDecimal.ZERO) > 0) {
-            discountPercentage = salesOrder.getTotalDiscount()
-                    .divide(salesOrder.getSubTotal(), 4, RoundingMode.HALF_UP)
+        //Calculate Total Discount Percentage for Approval Rule
+        // Formula: ((Total Item Discounts + Flat Discount) / Item Gross Total) * 100
+        double totalDiscountPercentage = 0.0;
+        BigDecimal totalCombinedDiscount = salesOrder.getItemTotalDiscount().add(salesOrder.getFlatDiscountAmount());
+
+        if (salesOrder.getItemGrossTotal().compareTo(BigDecimal.ZERO) > 0) {
+            totalDiscountPercentage = totalCombinedDiscount
+                    .divide(salesOrder.getItemGrossTotal(), 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100))
                     .doubleValue();
         }
 
-        // 6. Build Approval Context
+        //Build Approval Context
         ApprovalCheckContext approvalCheckContext = ApprovalCheckContext.builder()
-                .type(ApprovalType.SALES_ORDER_DISCOUNT) // Check logic: "Is Discount too high?"
-                .amount(salesOrder.getGrandTotal())      // Also pass amount for High Value checks
-                .percentage(discountPercentage)          // Pass calculated %
+                .type(ApprovalType.SALES_ORDER_DISCOUNT)
+                .amount(salesOrder.getGrandTotal())
+                .percentage(totalDiscountPercentage)
                 .referenceId(salesOrder.getId())
                 .referenceCode(salesOrder.getOrderNumber())
                 .build();
 
-        // 7. Check Approval
+        //Check Approval & Update Status
         CommonResponse<?> approvalResponse = approvalService.checkAndInitiateApproval(approvalCheckContext);
-
-        // 8. Update Sales Order Status based on Approval Result
         if (approvalResponse.getData() == ApprovalResultStatus.APPROVAL_REQUIRED) {
             salesOrder.setStatus(SalesOrderStatus.PENDING_APPROVAL);
         } else {
-            // Auto-approved or no rules matched
             salesOrder.setStatus(SalesOrderStatus.CONFIRMED);
         }
 
-        // 4. Save
         salesOrderRepository.save(salesOrder);
-
-        // 2. Process Items & Calculate Totals
-        //processItemsAndTotals(salesOrder, dto.getItems());
-
-        // 3. Save (Cascade saves items automatically)
-        //salesOrderRepository.save(salesOrder);
 
         return CommonResponse.builder()
                 .id(salesOrder.getId().toString())
@@ -124,30 +113,30 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     @Override
     @Transactional
-    public CommonResponse updateSalesOrder(Long id, SalesOrderDto dto) throws CommonException {
+    public CommonResponse<?> updateSalesOrder(Long id, SalesOrderDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         SalesOrder salesOrder = salesOrderRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new CommonException("Sales Order not found", HttpStatus.BAD_REQUEST));
+                .orElseThrow(() -> new CommonException("Sales Order not found", HttpStatus.NOT_FOUND));
 
+        List<SalesOrderStatus> editableStatuses = List.of(
+                SalesOrderStatus.CREATED,
+                SalesOrderStatus.PENDING,
+                SalesOrderStatus.CONFIRMED,
+                SalesOrderStatus.PENDING_APPROVAL
+        );
 
-        // Validation: Only update if CREATED
-        if (salesOrder.getStatus() != SalesOrderStatus.CREATED) {
-            throw new BadRequestException("Cannot edit Sales Order after processing has started.");
+        if (!editableStatuses.contains(salesOrder.getStatus())) {
+            throw new BadRequestException("Cannot edit Sales Order when status is: " + salesOrder.getStatus());
         }
 
-        // Update basic fields
         salesOrder.setWarehouseId(dto.getWarehouseId());
         salesOrder.setCustomerId(dto.getCustomerId());
         salesOrder.setRemarks(dto.getRemarks());
         if (dto.getOrderDate() != null) salesOrder.setOrderDate(dto.getOrderDate());
 
-        // STRATEGY: Clear Old Items & Re-add New Ones
-        // orphanRemoval=true in Entity ensures DB rows are deleted
-        salesOrder.getItems().clear();
-
-        // Re-process new items logic
-        processItemsAndTotals(salesOrder, dto.getItems());
+        //Re-calculate everything cleanly
+        processAndCalculateFinancials(salesOrder, dto);
 
         salesOrderRepository.save(salesOrder);
 
@@ -177,9 +166,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Pageable pageable = PageRequest.of(page, size);
 
         Page<SalesOrder> result = salesOrderRepository.getAllSalesOrders(
-                tenantId, filter.getId(), filter.getStatus(), filter.getCustomerId(),
-                filter.getWarehouseId(), filter.getSearchQuery(), filter.getFromDate(),
-                filter.getToDate(), pageable);
+                tenantId, filter.getId(), filter.getSoStatuses(), filter.getSoSource(), filter.getCustomerId(),
+                filter.getWarehouseId(), filter.getSearchQuery(), filter.getStartDateTime(),
+                filter.getEndDateTime(), pageable);
 
         // 1. Collect all unique Customer IDs from the page
         Set<Long> customerIds = result.getContent().stream()
@@ -205,7 +194,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrder> orders = salesOrderRepository.getAllSalesOrders(
                 tenantId,
                 filter.getId(),
-                filter.getStatus(),
+                filter.getSoStatuses(),
                 filter.getCustomerId(),
                 filter.getWarehouseId()
         );
@@ -215,27 +204,56 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .toList();
     }
 
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesOrderStats getStats(CommonFilter filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        return salesOrderRepository.getDashboardStats(
+                tenantId,
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
+    }
+
+
     @Override
     @Transactional
-    public CommonResponse cancelSalesOrder(Long id) throws CommonException {
+    public CommonResponse<?> updateStatus(Long id, SalesOrderStatus newStatus) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
         SalesOrder so = salesOrderRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Order not found", HttpStatus.BAD_REQUEST));
 
-        if (so.getStatus() == SalesOrderStatus.FULLY_INVOICED) {
-            throw new BadRequestException("Cannot cancel a fully invoiced order");
+        SalesOrderStatus currentStatus = so.getStatus();
+
+        if (currentStatus == newStatus) {
+            return CommonResponse.builder()
+                    .message("Order is already in " + newStatus.name() + " status")
+                    .build();
         }
 
-        // Check if any partial invoicing happened
-        boolean hasInvoicedItems = so.getItems().stream().anyMatch(i -> i.getInvoicedQty() > 0);
-        if (hasInvoicedItems) {
-            throw new BadRequestException("Cannot cancel order with invoiced items. Please return items first.");
-        }
+        if (newStatus == SalesOrderStatus.CANCELLED) {
+            // Rule A: Cannot cancel if status is already invoiced
+            if (currentStatus == SalesOrderStatus.FULLY_INVOICED ||
+                    currentStatus == SalesOrderStatus.PARTIALLY_INVOICED) {
+                throw new BadRequestException("Cannot cancel an order that is partially or fully invoiced.");
+            }
 
-        so.setStatus(SalesOrderStatus.CANCELLED);
+            // Rule B: Extra safety - Check if any individual items have been invoiced behind the scenes
+            boolean hasInvoicedItems = so.getItems().stream().anyMatch(i -> i.getInvoicedQty() > 0);
+            if (hasInvoicedItems) {
+                throw new BadRequestException("Cannot cancel order with invoiced items. Please return items first.");
+            }
+        }
+        //Apply the new status and save
+        so.setStatus(newStatus);
         salesOrderRepository.save(so);
 
-        return CommonResponse.builder().message("Order Cancelled").build();
+        return CommonResponse.builder()
+                .message("Order status successfully updated to " + newStatus.name())
+                .build();
     }
 
 
@@ -251,7 +269,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orElseThrow(() -> new CommonException("Linked Sales Order not found", HttpStatus.NOT_FOUND));
 
         if (event.getStatus() == ApprovalStatus.APPROVED) {
-            so.setStatus(SalesOrderStatus.CONFIRMED);
+            so.setStatus(SalesOrderStatus.PENDING);
         } else {
             so.setStatus(SalesOrderStatus.REJECTED);
         }
@@ -260,154 +278,98 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     /**
-     * CORE LOGIC:
-     * 1. Fetches Item Master to get Name/SKU/Price
-     * 2. Calculates Line Totals
-     * 3. Calculates Header Totals
-     * 4. Creates Child Entities (Snapshot) and links them to Parent
+     * THE UNIFIED FINANCIAL PIPELINE
+     * Calculates Item Level Math -> Aggregates -> Calculates Header Level Math
      */
-    private void processItemsAndTotals(SalesOrder salesOrder, List<SalesOrderItemDto> itemDtos) {
-        BigDecimal subTotal = BigDecimal.ZERO;
-        BigDecimal totalDiscount = BigDecimal.ZERO;
-        BigDecimal totalTax = BigDecimal.ZERO;
+    private void processAndCalculateFinancials(SalesOrder salesOrder, SalesOrderDto dto) {
+        BigDecimal itemGrossTotal = BigDecimal.ZERO;
+        BigDecimal itemTotalDiscount = BigDecimal.ZERO;
+        BigDecimal itemTotalTax = BigDecimal.ZERO;
 
-        // Initialize list if null
         if (salesOrder.getItems() == null) {
             salesOrder.setItems(new ArrayList<>());
+        } else {
+            salesOrder.getItems().clear(); // Clear for updates
         }
 
-        for (SalesOrderItemDto itemDto : itemDtos) {
+        // --- 1. Process Line Items ---
+        if (dto.getItems() != null) {
+            for (SalesOrderItemDto itemDto : dto.getItems()) {
+                Item itemMaster = itemRepository.findById(itemDto.getItemId())
+                        .orElseThrow(() -> new CommonException("Item ID not found", HttpStatus.BAD_REQUEST));
 
-            // 1. Fetch Master Data (Validation + Snapshot Source)
-            Item itemMaster = itemRepository.findById(itemDto.getItemId())
-                    .orElseThrow(() -> new CommonException("Item ID " + itemDto.getItemId() + " not found", HttpStatus.BAD_REQUEST));
+                BigDecimal qty = BigDecimal.valueOf(itemDto.getOrderedQty());
+                BigDecimal price = itemDto.getUnitPrice() != null ? itemDto.getUnitPrice() : itemMaster.getSellingPrice();
 
-            BigDecimal qty = BigDecimal.valueOf(itemDto.getOrderedQty());
+                // Gross
+                BigDecimal grossPrice = price.multiply(qty);
 
-            // Priority: DTO Price > Master Price (Allows manual override by sales person)
-            BigDecimal price = itemDto.getUnitPrice() != null ? itemDto.getUnitPrice() : itemMaster.getSellingPrice();
+                // Item Discount
+                BigDecimal discRate = itemDto.getDiscountRate() != null ? itemDto.getDiscountRate() : BigDecimal.ZERO;
+                BigDecimal discAmt = grossPrice.multiply(discRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
-            BigDecimal discount = itemDto.getDiscount() != null ? itemDto.getDiscount() : BigDecimal.ZERO;
-            BigDecimal tax = itemDto.getTax() != null ? itemDto.getTax() : BigDecimal.ZERO;
+                // Item Tax (Applied to Taxable Value)
+                BigDecimal taxableValue = grossPrice.subtract(discAmt);
+                BigDecimal taxRate = itemDto.getTaxRate() != null ? itemDto.getTaxRate() : BigDecimal.ZERO;
+                BigDecimal taxAmt = taxableValue.multiply(taxRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
-            // Math: (Price * Qty) - Discount + Tax
-            BigDecimal rawTotal = price.multiply(qty);
-            BigDecimal lineTotal = rawTotal.subtract(discount).add(tax);
+                // Line Total
+                BigDecimal lineTotal = taxableValue.add(taxAmt);
 
-            // Accumulate Header Totals
-            subTotal = subTotal.add(rawTotal);
-            totalDiscount = totalDiscount.add(discount);
-            totalTax = totalTax.add(tax);
+                // Create Item Entity
+                SalesOrderItem soItem = new SalesOrderItem();
+                soItem.setSalesOrder(salesOrder);
+                soItem.setItemId(itemMaster.getId());
+                soItem.setItemName(itemMaster.getName());
+                soItem.setQuantity(itemDto.getOrderedQty());
+                soItem.setOrderedQty(itemDto.getOrderedQty());
+                soItem.setUnitPrice(price);
+                soItem.setDiscountRate(discRate);
+                soItem.setDiscountAmount(discAmt);
+                soItem.setTaxRate(taxRate);
+                soItem.setTaxAmount(taxAmt);
+                soItem.setLineTotal(lineTotal);
 
-            // 2. Create Snapshot Entity
-            SalesOrderItem soItem = SalesOrderItem.builder()
-                    .salesOrder(salesOrder) // Link to Parent
-                    .itemId(itemMaster.getId())
-                    .itemName(itemMaster.getName()) // SNAPSHOT: Store name permanently
-                    .orderedQty(itemDto.getOrderedQty())
-                    .invoicedQty(0)
-                    .quantity(0)
-                    .unitPrice(price)
-                    .discount(discount)
-                    // .tax(tax) // If your entity has tax field, set it here
-                    .lineTotal(lineTotal)
-                    .build();
+                salesOrder.getItems().add(soItem);
 
-            // Add to Parent's list
-            salesOrder.getItems().add(soItem);
+                // Accumulate totals
+                itemGrossTotal = itemGrossTotal.add(grossPrice);
+                itemTotalDiscount = itemTotalDiscount.add(discAmt);
+                itemTotalTax = itemTotalTax.add(taxAmt);
+            }
         }
 
-        // Set Calculated Totals to Header
-        salesOrder.setSubTotal(subTotal);
-        salesOrder.setTotalDiscount(totalDiscount);
-        salesOrder.setTotalTax(totalTax);
-        salesOrder.setGrandTotal(subTotal.subtract(totalDiscount).add(totalTax));
-    }
+        salesOrder.setItemGrossTotal(itemGrossTotal);
+        salesOrder.setItemTotalDiscount(itemTotalDiscount);
+        salesOrder.setItemTotalTax(itemTotalTax);
 
+        //Process Header (Flat) Adjustments
 
-    private void processOrderItems(SalesOrder salesOrder, List<SalesOrderItemDto> itemDtos) {
-        if (itemDtos == null || itemDtos.isEmpty()) return;
+        // Base line sum (Total of all item lineTotals)
+        BigDecimal lineSum = salesOrder.getItems().stream()
+                .map(SalesOrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        for (SalesOrderItemDto itemDto : itemDtos) {
-            Item itemMaster = itemRepository.findById(itemDto.getItemId())
-                    .orElseThrow(() -> new CommonException("Item ID " + itemDto.getItemId() + " not found", HttpStatus.BAD_REQUEST));
+        // Flat Discount
+        BigDecimal flatDiscRate = dto.getFlatDiscountRate() != null ? dto.getFlatDiscountRate() : BigDecimal.ZERO;
+        BigDecimal flatDiscAmt = lineSum.multiply(flatDiscRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        salesOrder.setFlatDiscountRate(flatDiscRate);
+        salesOrder.setFlatDiscountAmount(flatDiscAmt);
 
-            SalesOrderItem soItem = calculateAndMapItem(salesOrder, itemDto, itemMaster);
-            salesOrder.getItems().add(soItem);
-        }
-    }
+        // Flat Tax (Applied on the discounted bill)
+        BigDecimal discountedBill = lineSum.subtract(flatDiscAmt);
+        BigDecimal flatTaxRate = dto.getFlatTaxRate() != null ? dto.getFlatTaxRate() : BigDecimal.ZERO;
+        BigDecimal flatTaxAmt = discountedBill.multiply(flatTaxRate).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        salesOrder.setFlatTaxRate(flatTaxRate);
+        salesOrder.setFlatTaxAmount(flatTaxAmt);
 
-    private SalesOrderItem calculateAndMapItem(SalesOrder salesOrder, SalesOrderItemDto dto, Item master) {
-        // 1. Determine Base Values
-        BigDecimal quantity = BigDecimal.valueOf(dto.getOrderedQty());
-        BigDecimal price = dto.getUnitPrice() != null ? dto.getUnitPrice() : master.getSellingPrice();
-
-        // 2. Item Level Adjustments
-        BigDecimal itemDiscount = dto.getDiscount() != null ? dto.getDiscount() : BigDecimal.ZERO;
-        BigDecimal itemTax = dto.getTax() != null ? dto.getTax() : BigDecimal.ZERO;
-
-        // 3. Calculate Line Total (Net value for this specific row)
-        // Formula: (Price * Qty) - Discount + Tax
-        BigDecimal grossPrice = price.multiply(quantity);
-        BigDecimal lineTotal = grossPrice.subtract(itemDiscount).add(itemTax);
-
-        // 4. Map Entity
-        return SalesOrderItem.builder()
-                .salesOrder(salesOrder)
-                .itemId(master.getId())
-                .itemName(master.getName())
-                .orderedQty(dto.getOrderedQty())
-                .quantity(0)
-                .invoicedQty(0)
-                .unitPrice(price)
-                .discount(itemDiscount)
-                .tax(itemTax)
-                .lineTotal(lineTotal)
-                .build();
-    }
-
-
-    private void applyHeaderTotals(SalesOrder salesOrder, SalesOrderDto dto) {
-
-        // A. Initialize Accumulators
-        BigDecimal sumGrossAmount = BigDecimal.ZERO; // Pure (Price * Qty)
-        BigDecimal sumItemDiscounts = BigDecimal.ZERO;
-        BigDecimal sumItemTaxes = BigDecimal.ZERO;
-
-        // B. Loop processed items to sum up values
-        for (SalesOrderItem item : salesOrder.getItems()) {
-            BigDecimal itemGross = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getOrderedQty()));
-            sumGrossAmount = sumGrossAmount.add(itemGross);
-
-            sumItemDiscounts = sumItemDiscounts.add(item.getDiscount());
-            sumItemTaxes = sumItemTaxes.add(item.getTax());
-        }
-
-        // C. Get Header Level Flat Inputs (The "Global" adjustments)
-        BigDecimal headerFlatDiscount = dto.getTotalDiscount() != null ? dto.getTotalDiscount() : BigDecimal.ZERO;
-        BigDecimal headerFlatTax = dto.getTotalTax() != null ? dto.getTotalTax() : BigDecimal.ZERO;
-
-        // D. Calculate Final Header Fields
-        // 1. Total Discount = (Sum of Item Discounts) + (Flat Header Discount)
-        BigDecimal finalTotalDiscount = sumItemDiscounts.add(headerFlatDiscount);
-
-        // 2. Total Tax = (Sum of Item Taxes) + (Flat Header Tax)
-        BigDecimal finalTotalTax = sumItemTaxes.add(headerFlatTax);
-
-        // 3. Set Values
-        salesOrder.setSubTotal(sumGrossAmount); // Gross value before any math
-        salesOrder.setTotalDiscount(finalTotalDiscount);
-        salesOrder.setTotalTax(finalTotalTax);
-
-        // 4. Grand Total = SubTotal - TotalDiscount + TotalTax
-        BigDecimal grandTotal = sumGrossAmount.subtract(finalTotalDiscount).add(finalTotalTax);
-        salesOrder.setGrandTotal(grandTotal.max(BigDecimal.ZERO));
+        // Grand Total
+        salesOrder.setGrandTotal(discountedBill.add(flatTaxAmt));
     }
 
     private SalesOrderDto mapToDto(SalesOrder so, Map<Long, UserMiniDto> customerMap, boolean includeContact) {
         List<SalesOrderItemDto> itemDtos = new ArrayList<>();
 
-        // Map items (Existing logic)
         if (so.getItems() != null) {
             for (SalesOrderItem item : so.getItems()) {
                 itemDtos.add(SalesOrderItemDto.builder()
@@ -417,31 +379,21 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .orderedQty(item.getOrderedQty())
                         .invoicedQty(item.getInvoicedQty())
                         .unitPrice(item.getUnitPrice())
-                        .discount(item.getDiscount())
-                        .tax(item.getTax())
+                        .discountRate(item.getDiscountRate())
+                        .discountAmount(item.getDiscountAmount())
+                        .taxRate(item.getTaxRate())
+                        .taxAmount(item.getTaxAmount())
                         .lineTotal(item.getLineTotal())
                         .build()
                 );
             }
         }
 
-        // Logic for Conditional Contact Mapping
         UserMiniDto contactMini = null;
         String customerName = null;
-
         if (includeContact && customerMap != null) {
-            UserMiniDto userDetail = customerMap.getOrDefault(so.getCustomerId(), new UserMiniDto());
-
-            contactMini = UserMiniDto.builder()
-                    .id(userDetail.getId())
-                    .userType(userDetail.getUserType())
-                    .userUuid(userDetail.getUserUuid())
-                    .name(userDetail.getName())
-                    .email(userDetail.getEmail())
-                    .phone(userDetail.getPhone())
-                    .build();
-
-            customerName = userDetail.getName();
+            contactMini = customerMap.getOrDefault(so.getCustomerId(), new UserMiniDto());
+            customerName = contactMini.getName();
         }
 
         return SalesOrderDto.builder()
@@ -451,19 +403,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(so.getStatus())
                 .source(so.getSource())
                 .warehouseId(so.getWarehouseId())
-                .customerId(so.getCustomerId()) // Always include ID
-                .contactMini(contactMini)       // Null if includeContact is false
-                .customerName(customerName)     // Null if includeContact is false
+                .customerId(so.getCustomerId())
+                .contactMini(contactMini)
+                .customerName(customerName)
                 .remarks(so.getRemarks())
-                .subTotal(so.getSubTotal())
-                .totalDiscount(so.getTotalDiscount())
-                .totalTax(so.getTotalTax())
-                .totalDiscountPer(
-                        so.getSubTotal().compareTo(BigDecimal.ZERO) > 0
-                                ? so.getTotalDiscount().multiply(BigDecimal.valueOf(100))
-                                .divide(so.getSubTotal(), 2, RoundingMode.HALF_UP)
-                                : BigDecimal.ZERO
-                )
+                .itemGrossTotal(so.getItemGrossTotal())
+                .itemTotalDiscount(so.getItemTotalDiscount())
+                .itemTotalTax(so.getItemTotalTax())
+                .flatDiscountRate(so.getFlatDiscountRate())
+                .flatDiscountAmount(so.getFlatDiscountAmount())
+                .flatTaxRate(so.getFlatTaxRate())
+                .flatTaxAmount(so.getFlatTaxAmount())
                 .grandTotal(so.getGrandTotal())
                 .items(itemDtos)
                 .build();
