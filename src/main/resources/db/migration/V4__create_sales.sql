@@ -12,13 +12,18 @@ CREATE TABLE sales_order (
     order_date TIMESTAMP NOT NULL,
     status VARCHAR(50) NOT NULL,
     source VARCHAR(50) NOT NULL,
-    sub_total DECIMAL(18, 2) DEFAULT 0,
-    total_discount DECIMAL(18, 2) DEFAULT 0,
-    total_tax DECIMAL(18, 2) DEFAULT 0,
-    grand_total DECIMAL(18, 2) NOT NULL DEFAULT 0,
-    remarks VARCHAR(500)
+    remarks VARCHAR(500),
+    item_gross_total DECIMAL(18, 2) DEFAULT 0.00,
+    item_total_discount DECIMAL(18, 2) DEFAULT 0.00,
+    item_total_tax DECIMAL(18, 2) DEFAULT 0.00,
+    flat_discount_rate DECIMAL(18, 2) DEFAULT 0.00,
+    flat_discount_amount DECIMAL(18, 2) DEFAULT 0.00,
+    flat_tax_rate DECIMAL(18, 2) DEFAULT 0.00,
+    flat_tax_amount DECIMAL(18, 2) DEFAULT 0.00,
+    grand_total DECIMAL(18, 2) NOT NULL DEFAULT 0.00
 );
 
+-- Indexes for fast lookups
 CREATE INDEX idx_sales_order_tenant_id ON sales_order(tenant_id);
 CREATE INDEX idx_sales_order_customer_id ON sales_order(customer_id);
 CREATE INDEX idx_sales_order_warehouse_id ON sales_order(warehouse_id);
@@ -32,13 +37,15 @@ CREATE TABLE sales_order_item (
     sales_order_id BIGINT NOT NULL,
     item_id BIGINT NOT NULL,
     item_name VARCHAR(255) NOT NULL,
-    quantity INTEGER NOT NULL,
     ordered_qty INTEGER NOT NULL,
     invoiced_qty INTEGER NOT NULL DEFAULT 0,
+    quantity INTEGER NOT NULL DEFAULT 0,
     unit_price DECIMAL(18, 2) NOT NULL,
-    discount DECIMAL(18, 2) DEFAULT 0,
-    tax DECIMAL(18, 2) DEFAULT 0,
-    line_total DECIMAL(18, 2) NOT NULL,
+    discount_rate DECIMAL(18, 2) DEFAULT 0.00,
+    discount_amount DECIMAL(18, 2) DEFAULT 0.00,
+    tax_rate DECIMAL(18, 2) DEFAULT 0.00,
+    tax_amount DECIMAL(18, 2) DEFAULT 0.00,
+    line_total DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
     CONSTRAINT fk_so_item_sales_order FOREIGN KEY (sales_order_id) REFERENCES sales_order(id) ON DELETE CASCADE
 );
 
@@ -62,13 +69,17 @@ CREATE TABLE invoice (
     delivery_status VARCHAR(50) NOT NULL,
     payment_status VARCHAR(50) NOT NULL,
     invoice_type VARCHAR(50) NOT NULL,
-    sub_total DECIMAL(18, 2) NOT NULL,
-    total_discount DECIMAL(18, 2) DEFAULT 0,
-    total_tax DECIMAL(18, 2) DEFAULT 0,
-    grand_total DECIMAL(18, 2) NOT NULL,
-    amount_paid DECIMAL(18, 2) NOT NULL,
-    balance DECIMAL(18, 2) NOT NULL,
     remarks VARCHAR(500),
+    item_gross_total DECIMAL(18, 2) DEFAULT 0.00,
+    item_total_discount DECIMAL(18, 2) DEFAULT 0.00,
+    item_total_tax DECIMAL(18, 2) DEFAULT 0.00,
+    flat_discount_rate DECIMAL(18, 2) DEFAULT 0.00,
+    flat_discount_amount DECIMAL(18, 2) DEFAULT 0.00,
+    flat_tax_rate DECIMAL(18, 2) DEFAULT 0.00,
+    flat_tax_amount DECIMAL(18, 2) DEFAULT 0.00,
+    grand_total DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+    amount_paid DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+    balance DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
     CONSTRAINT fk_invoice_sales_order FOREIGN KEY (sales_order_id) REFERENCES sales_order(id) ON DELETE RESTRICT
 );
 
@@ -90,10 +101,12 @@ CREATE TABLE invoice_item (
     batch_number VARCHAR(100),
     quantity INTEGER NOT NULL,
     unit_price DECIMAL(18, 2) NOT NULL,
-    discount_amount DECIMAL(18, 2) DEFAULT 0,
+    discount_rate DECIMAL(18, 2) DEFAULT 0.00,
+    discount_amount DECIMAL(18, 2) DEFAULT 0.00,
+    tax_rate DECIMAL(18, 2) DEFAULT 0.00,
+    tax_amount DECIMAL(18, 2) DEFAULT 0.00,
+    line_total DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
     returned_quantity INTEGER DEFAULT 0,
-    tax_amount DECIMAL(18, 2) DEFAULT 0,
-    line_total DECIMAL(18, 2) NOT NULL,
     CONSTRAINT fk_invoice_item_invoice FOREIGN KEY (invoice_id) REFERENCES invoice(id) ON DELETE CASCADE,
     CONSTRAINT fk_invoice_item_so_item FOREIGN KEY (so_item_id) REFERENCES sales_order_item(id) ON DELETE SET NULL
 );

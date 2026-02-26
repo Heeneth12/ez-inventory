@@ -1,7 +1,6 @@
 package com.ezh.Inventory.sales.invoice.controller;
 
 
-import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
@@ -9,6 +8,8 @@ import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
 import com.ezh.Inventory.sales.invoice.service.InvoiceService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import com.ezh.Inventory.utils.pdfsvc.PdfGeneratorService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -31,19 +33,20 @@ public class InvoiceController {
     private final InvoiceService invoiceService;
     private final PdfGeneratorService pdfGeneratorService;
     private final InvoiceRepository invoiceRepository;
+    private final AuthServiceClient authServiceClient;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> createInvoice(@RequestBody InvoiceCreateDto invoiceDto) throws CommonException {
+    public ResponseResource<CommonResponse<?>> createInvoice(@RequestBody InvoiceDto invoiceDto) throws CommonException {
         log.info("Entering createInvoice with : {}", invoiceDto);
-        CommonResponse response = invoiceService.createInvoice(invoiceDto);
+        CommonResponse<?> response = invoiceService.createInvoice(invoiceDto);
         return ResponseResource.success(HttpStatus.CREATED, response, "Invoice created successfully");
     }
 
     @PostMapping(value = "/{invoiceId}/update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> updateInvoice(@PathVariable Long invoiceId,
-                                                          @RequestBody InvoiceCreateDto invoiceDto) throws CommonException {
+    public ResponseResource<CommonResponse<?>> updateInvoice(@PathVariable Long invoiceId,
+                                                          @RequestBody InvoiceDto invoiceDto) throws CommonException {
         log.info("Entering updateInvoice with : {}", invoiceDto);
-        CommonResponse response = invoiceService.updateInvoice(invoiceId, invoiceDto);
+        CommonResponse<?> response = invoiceService.updateInvoice(invoiceId, invoiceDto);
         return ResponseResource.success(HttpStatus.CREATED, response, "Invoice updated successfully");
     }
 
@@ -74,7 +77,8 @@ public class InvoiceController {
         try {
             Invoice invoice = invoiceRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Invoice not found"));
-            byte[] pdfBytes = pdfGeneratorService.generateInvoicePdf(invoice);
+            Map<Long, UserMiniDto> userMiniDto = authServiceClient.getBulkUserDetails(List.of(invoice.getCustomerId()));
+            byte[] pdfBytes = pdfGeneratorService.generateInvoicePdf(invoice, userMiniDto.get(invoice.getCustomerId()));
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDispositionFormData("filename", "Invoice-" + invoice.getInvoiceNumber() + ".pdf");

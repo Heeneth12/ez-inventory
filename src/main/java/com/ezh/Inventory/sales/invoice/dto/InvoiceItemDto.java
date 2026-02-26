@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.invoice.dto;
 
-import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,14 +13,24 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class InvoiceItemDto {
     private Long id;
-    private Invoice invoice;
+    private Long soItemId; // Link to SO Line
     private Long itemId;
     private String itemName;
-    private Integer quantity;
-    private  String batchNumber;
     private String sku;
+
+    //Quantities & Stock
+    private Integer quantity; // How much is being invoiced now
+    private Integer returnedQuantity;
+    private String batchNumber; // The specific batch deducted
+
+    //Financials (Line Level)
     private BigDecimal unitPrice;
-    private BigDecimal discountAmount; // optional per item
-    private BigDecimal taxAmount; // tax per item
-    private BigDecimal lineTotal; // qty × price − discount + tax
+
+    private BigDecimal discountRate;   // INPUT from UI
+    private BigDecimal discountAmount;
+
+    private BigDecimal taxRate;        // INPUT from UI
+    private BigDecimal taxAmount;
+
+    private BigDecimal lineTotal;
 }

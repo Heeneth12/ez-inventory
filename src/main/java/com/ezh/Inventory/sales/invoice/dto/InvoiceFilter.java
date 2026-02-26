@@ -1,22 +1,21 @@
 package com.ezh.Inventory.sales.invoice.dto;
 
+import com.ezh.Inventory.sales.invoice.entity.InvoicePaymentStatus;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceStatus;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class InvoiceFilter {
-    private Long id;
-    private String searchQuery;
-    private Long salesOrderId;
-    private InvoiceStatus status;
+public class InvoiceFilter extends CommonFilter {
     private Long customerId;
-    private Long warehouseId;
-    private Date fromDate;
-    private Date toDate;
+    private Long salesOrderId;
+    private List<InvoiceStatus> invStatuses;
+    private List<InvoicePaymentStatus> paymentStatus;
 }

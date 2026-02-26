@@ -1,9 +1,12 @@
 package com.ezh.Inventory.sales.invoice.entity;
 
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
-import com.ezh.Inventory.utils.common.CommonSerializable;
+import com.ezh.Inventory.utils.AbstractFinancialHeader;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -16,24 +19,23 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Invoice extends CommonSerializable {
+public class Invoice extends AbstractFinancialHeader {
 
     @Column(name = "tenant_id", nullable = false)
     private Long tenantId;
 
     @Column(name = "warehouse_id", nullable = false)
-    private Long warehouseId; // Where stock is deducted from
+    private Long warehouseId;
 
     @Column(name = "invoice_number", nullable = false, unique = true, length = 40)
-    private String invoiceNumber; // INV-2025-0001
+    private String invoiceNumber;
 
     @Column(name = "invoice_date", nullable = false)
     private Date invoiceDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_order_id", nullable = false)
-    private SalesOrder salesOrder; // Which Sales Order this invoice belongs to
+    private SalesOrder salesOrder;
 
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
@@ -54,30 +56,23 @@ public class Invoice extends CommonSerializable {
     @Column(name = "invoice_type", length = 50, nullable = false)
     private InvoiceType invoiceType;
 
-    @Column(name = "sub_total", nullable = false)
-    private BigDecimal subTotal; // qty × price (sum of all line totals before tax)
-
-    @Builder.Default
-    @Column(name = "total_discount")
-    private BigDecimal totalDiscount = BigDecimal.ZERO;
-
-    @Builder.Default
-    @Column(name = "total_tax")
-    private BigDecimal totalTax = BigDecimal.ZERO;
-
-    @Column(name = "grand_total", nullable = false)
-    private BigDecimal grandTotal; // subTotal - discount + tax
-
+    //INVOICE SPECIFIC FINANCIALS
     @Column(name = "amount_paid", nullable = false)
-    private BigDecimal amountPaid; // how much customer paid
+    private BigDecimal amountPaid = BigDecimal.ZERO;
 
     @Column(name = "balance", nullable = false)
-    private BigDecimal balance; // outstanding amount
+    private BigDecimal balance = BigDecimal.ZERO;
 
     @Column(name = "remarks", length = 500)
     private String remarks;
 
-    @Builder.Default
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<InvoiceItem> items = new ArrayList<>();
+
+    // INHERITED FROM AbstractFinancialHeader:
+    // - itemGrossTotal
+    // - itemTotalDiscount, itemTotalTax
+    // - flatDiscountRate, flatDiscountAmount
+    // - flatTaxRate, flatTaxAmount
+    // - grandTotal
 }
