@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.payment.repository;
 
+import com.ezh.Inventory.sales.payment.dto.PaymentStats;
 import com.ezh.Inventory.sales.payment.entity.Payment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,4 +54,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             @Param("paymentNumber") String paymentNumber,
             Pageable pageable
     );
+
+
+    @Query("SELECT " +
+            "COUNT(p.id) as totalCount, " +
+            "SUM(p.amount) as totalCollected, " +
+            "SUM(p.allocatedAmount) as totalAllocated, " +
+            "SUM(p.unallocatedAmount) as totalAdvance, " +
+            "SUM(CASE WHEN p.status = 'PENDING' THEN p.amount ELSE 0 END) as pendingAmount " +
+            "FROM Payment p " +
+            "WHERE p.tenantId = :tenantId AND p.isDeleted = false")
+    PaymentStats getPaymentStats(@Param("tenantId") Long tenantId);
 }

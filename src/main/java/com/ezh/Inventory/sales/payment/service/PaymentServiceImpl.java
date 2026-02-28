@@ -13,6 +13,7 @@ import com.ezh.Inventory.sales.payment.entity.PaymentStatus;
 import com.ezh.Inventory.sales.payment.repository.PaymentAllocationRepository;
 import com.ezh.Inventory.sales.payment.repository.PaymentRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.common.client.AuthServiceClient;
@@ -342,6 +343,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentStats getStats(CommonFilter filter)  throws CommonException{
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        return paymentRepository.getPaymentStats(tenantId);
+    }
 
     private void processAllocations(Payment payment, List<PaymentAllocationDto> allocDtos, Long tenantId) {
         BigDecimal totalAllocatedNow = BigDecimal.ZERO;

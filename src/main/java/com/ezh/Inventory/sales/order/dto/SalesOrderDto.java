@@ -41,5 +41,9 @@ public class SalesOrderDto {
 
     private BigDecimal grandTotal;
 
+    //UI
+    private BigDecimal totalTax;
+    private BigDecimal totalDiscount;
+
     private List<SalesOrderItemDto> items;
 }

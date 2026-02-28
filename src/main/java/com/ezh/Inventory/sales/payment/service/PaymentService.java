@@ -1,6 +1,7 @@
 package com.ezh.Inventory.sales.payment.service;
 
 import com.ezh.Inventory.sales.payment.dto.*;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
 import org.springframework.data.domain.Page;
@@ -29,4 +30,6 @@ public interface PaymentService {
     CustomerFinancialSummaryDto getCustomerFinancialSummary(Long customerId) throws CommonException;
 
     CommonResponse<?> addMoneyToWallet(WalletAddDto dto) throws CommonException;
+
+    PaymentStats getStats(CommonFilter filter) throws CommonException;
 }

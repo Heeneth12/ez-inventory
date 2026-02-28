@@ -414,6 +414,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .flatDiscountAmount(so.getFlatDiscountAmount())
                 .flatTaxRate(so.getFlatTaxRate())
                 .flatTaxAmount(so.getFlatTaxAmount())
+                // Aggregated Totals for UI (Item Totals + Flat Totals)
+                .totalTax(so.getItemTotalTax().add(so.getFlatTaxAmount()))
+                .totalDiscount(so.getItemTotalDiscount().add(so.getFlatDiscountAmount()))
                 .grandTotal(so.getGrandTotal())
                 .items(itemDtos)
                 .build();

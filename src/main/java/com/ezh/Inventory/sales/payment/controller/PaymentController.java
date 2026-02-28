@@ -2,9 +2,14 @@ package com.ezh.Inventory.sales.payment.controller;
 
 
 import com.ezh.Inventory.sales.payment.dto.*;
+import com.ezh.Inventory.sales.payment.entity.Payment;
+import com.ezh.Inventory.sales.payment.repository.PaymentRepository;
 import com.ezh.Inventory.sales.payment.service.PaymentService;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import com.ezh.Inventory.utils.pdfsvc.PdfGeneratorService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -26,7 +32,9 @@ import java.util.List;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentRepository paymentRepository;
     private final PdfGeneratorService pdfGeneratorService;
+    private final AuthServiceClient authServiceClient;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<CommonResponse<?>> recordPayment(@RequestBody PaymentCreateDto paymentCreateDto) throws CommonException {
@@ -93,6 +101,13 @@ public class PaymentController {
         return ResponseResource.success(HttpStatus.CREATED, response, "Money added to wallet successfully");
     }
 
+    @PostMapping(value = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<PaymentStats> getStats(@RequestBody CommonFilter filter) throws CommonException {
+        log.info("Fetching payment statistics");
+        PaymentStats response = paymentService.getStats(filter);
+        return ResponseResource.success(HttpStatus.OK, response, "Payment statistics fetched successfully");
+    }
+
     /**
      * Generate and Download Payment PDF
      */
@@ -100,13 +115,14 @@ public class PaymentController {
     public ResponseEntity<byte[]> downloadPaymentPdf(@PathVariable Long paymentId) throws Exception {
         log.info("Generating PDF for payment: {}", paymentId);
         // Assuming you call your service which calls PdfGeneratorService
-        PaymentDto paymentDto = paymentService.getPayment(paymentId);
-        byte[] pdfContent = pdfGeneratorService.generatePaymentPdf(paymentDto);
-
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Invoice not found"));
+        Map<Long, UserMiniDto> userMiniDto = authServiceClient.getBulkUserDetails(List.of(payment.getCustomerId()));
+        byte[] pdfContent = pdfGeneratorService.generatePaymentPdf(payment, userMiniDto.get(payment.getCustomerId()));
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", "Receipt-" + paymentId + ".pdf");
-
+        headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
         return new ResponseEntity<>(pdfContent, headers, HttpStatus.OK);
     }
 }

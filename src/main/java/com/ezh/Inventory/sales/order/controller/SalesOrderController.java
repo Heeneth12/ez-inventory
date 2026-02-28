@@ -2,8 +2,10 @@ package com.ezh.Inventory.sales.order.controller;
 
 import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
+import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.sales.order.service.SalesOrderService;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -66,6 +68,13 @@ public class SalesOrderController {
         log.info("Updating status for Sales order ID: {} to {}", id, status);
         CommonResponse<?> response = salesOrderService.updateStatus(id, status);
         return ResponseResource.success(HttpStatus.OK, response, "Sales Orders status updated to " + status);
+    }
+
+    @PostMapping(value = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<SalesOrderStats> getStats(@RequestBody CommonFilter filter) throws CommonException {
+        log.info("Updating status for Sales order ID");
+        SalesOrderStats response = salesOrderService.getStats(filter);
+        return ResponseResource.success(HttpStatus.OK, response, "Sales Orders stats Fetched ");
     }
 
 //    @PostMapping(value = "/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -1,7 +1,8 @@
 package com.ezh.Inventory.utils.pdfsvc;
 
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
-import com.ezh.Inventory.sales.payment.dto.PaymentDto;
+import com.ezh.Inventory.sales.payment.entity.Payment;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,21 +20,21 @@ public class PdfGeneratorService {
     private final TemplateEngine templateEngine;
 
     // Existing Invoice Method
-    public byte[] generateInvoicePdf(Invoice invoice) throws DocumentException, IOException {
+    public byte[] generateInvoicePdf(Invoice invoice, UserMiniDto customer) throws DocumentException, IOException {
         Context context = new Context();
         context.setVariable("invoice", invoice);
+        context.setVariable("customer", customer);
         return renderPdf("invoice_pdf", context);
     }
 
     /**
      * Generates a Payment Confirmation / Receipt PDF
      */
-    public byte[] generatePaymentPdf(PaymentDto payment) throws DocumentException, IOException {
+    public byte[] generatePaymentPdf(Payment payment, UserMiniDto customer) throws DocumentException, IOException {
         Context context = new Context();
         context.setVariable("payment", payment);
-        // We pass the allocations explicitly for easier access in Thymeleaf if needed
-        context.setVariable("allocations", payment.getAllocatedAmount());
-
+        context.setVariable("customer", customer);
+        context.setVariable("allocations", payment.getAllocations());
         return renderPdf("payment_receipt_pdf", context);
     }
 
