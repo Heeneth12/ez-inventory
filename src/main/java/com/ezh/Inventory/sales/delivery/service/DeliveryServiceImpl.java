@@ -5,7 +5,6 @@ import com.ezh.Inventory.sales.delivery.entity.*;
 import com.ezh.Inventory.sales.delivery.repository.DeliveryItemRepository;
 import com.ezh.Inventory.sales.delivery.repository.DeliveryRepository;
 import com.ezh.Inventory.sales.delivery.repository.RouteRepository;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceItemDto;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
@@ -50,7 +49,7 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     @Transactional
-    public void createDeliveryForInvoice(Invoice invoice, InvoiceCreateDto dto) {
+    public void createDeliveryForInvoice(Invoice invoice, InvoiceDto dto) {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         // 1. Determine Status & Dates based on Type
@@ -193,14 +192,27 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<DeliveryDto> getAllDeliveries(int page, int size) throws CommonException {
+    public Page<DeliveryDto> getAllDeliveries(int page, int size, DeliveryFilterDto filter) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
 
-        Page<Delivery> deliveryPage = deliveryRepository.findAll(pageable);
+        // Call the custom query with all filter parameters
+        Page<Delivery> deliveryPage = deliveryRepository.findDeliveriesByFilter(
+                tenantId,
+                filter.getDeliveryId(),
+                filter.getInvoiceId(),
+                filter.getCustomerId(),
+                filter.getShipmentTypes(),
+                filter.getShipmentStatuses(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
+                pageable
+        );
 
+        // Bulk fetch customer details for mapping
         List<Long> customerIds = deliveryPage.getContent().stream()
                 .map(Delivery::getCustomerId)
                 .distinct()
@@ -211,52 +223,52 @@ public class DeliveryServiceImpl implements DeliveryService {
             customerMap = authServiceClient.getBulkUserDetails(customerIds);
         }
 
-            final Map<Long, UserMiniDto> finalMap = customerMap;
+        final Map<Long, UserMiniDto> finalMap = customerMap;
         return deliveryPage.map(d -> mapToDto(d, finalMap, true));
     }
 
     @Override
     @Transactional
-    public CommonResponse<?> updateDeliveryStatus(DeliveryFilterDto dto) throws CommonException {
+    public CommonResponse<?> updateDeliveryStatus(Long id, ShipmentStatus  status) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Delivery delivery = deliveryRepository
-                .findByIdAndTenantId(dto.getId(), tenantId)
+                .findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Delivery not found", HttpStatus.NOT_FOUND));
 
         Invoice invoice = invoiceRepository.findById(delivery.getInvoice().getId())
                 .orElseThrow(() -> new CommonException("", HttpStatus.NOT_FOUND));
 
         ShipmentStatus currentStatus = delivery.getStatus();
-        ShipmentStatus newStatus = dto.getStatus();
 
         //Same status → no update
-        if (currentStatus == newStatus) {
+        if (currentStatus == status) {
             return CommonResponse.builder()
                     .message("Status already updated")
                     .build();
         }
 
         //Validate transition
-        if (!isValidTransition(currentStatus, newStatus)) {
+        if (!isValidTransition(currentStatus, status)) {
             throw new CommonException(
-                    "Invalid status transition from " + currentStatus + " to " + newStatus,
+                    "Invalid status transition from " + currentStatus + " to " + status,
                     HttpStatus.BAD_REQUEST
             );
         }
 
-        if(newStatus.equals(ShipmentStatus.SHIPPED)){
+        if(status.equals(ShipmentStatus.SHIPPED)){
             delivery.setShippedDate(new Date());
         }
 
-        if(newStatus.equals(ShipmentStatus.DELIVERED)){
+        if(status.equals(ShipmentStatus.DELIVERED)){
             delivery.setDeliveredDate(new Date());
             invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
         }
 
-        delivery.setStatus(newStatus);
+        delivery.setStatus(status);
         deliveryRepository.save(delivery);
+        invoiceRepository.save(invoice);
 
         return CommonResponse.builder()
                 .message("Delivery status updated successfully")
@@ -275,14 +287,14 @@ public class DeliveryServiceImpl implements DeliveryService {
                 filter.getDeliveryNumber(),
                 filter.getInvoiceId(),
                 filter.getCustomerId(),
-                filter.getType(),
-                filter.getStatus(),
-                filter.getScheduledDate(),
-                filter.getShippedDate(),
-                filter.getDeliveredDate()
+                filter.getShipmentTypes(),
+                filter.getShipmentStatuses(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
         );
+
         final Map<Long, UserMiniDto> finalMap = new HashMap<>();
-        return deliveries.stream().map(dev ->  mapToDto(dev, finalMap, false)).toList();
+        return deliveries.stream().map(dev -> mapToDto(dev, finalMap, false)).toList();
     }
 
 
@@ -588,7 +600,6 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .customerId(invoice.getCustomerId())
                 .invoiceDate(invoice.getInvoiceDate())
                 .status(invoice.getStatus())
-                .subTotal(invoice.getSubTotal())
                 .grandTotal(invoice.getGrandTotal())
                 .balance(invoice.getBalance())
                 .items(itemDtos)

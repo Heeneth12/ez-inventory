@@ -2,24 +2,26 @@ package com.ezh.Inventory.sales.delivery.dto;
 
 import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentType;
-import lombok.*;
+import com.ezh.Inventory.utils.common.CommonFilter;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
-import java.util.Date;
+import java.util.List;
 
 
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DeliveryFilterDto {
-    private Long id;
-    private String deliveryNumber;
-    private Long invoiceId;
+public class DeliveryFilterDto extends CommonFilter {
+    private Long deliveryId;
     private Long customerId;
-    private ShipmentType type;   // PICKUP / COURIER / OWN_FLEET
-    private ShipmentStatus status; // PENDING, SCHEDULED, SHIPPED, DELIVERED
-    private Date scheduledDate;
-    private Date shippedDate;
-    private Date deliveredDate;
+    private Long invoiceId;
+    private String deliveryNumber;
+    private List<ShipmentType> shipmentTypes;
+    private List<ShipmentStatus> shipmentStatuses;
 }

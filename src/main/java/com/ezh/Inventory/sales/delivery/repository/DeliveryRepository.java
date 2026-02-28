@@ -3,12 +3,14 @@ package com.ezh.Inventory.sales.delivery.repository;
 import com.ezh.Inventory.sales.delivery.entity.Delivery;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,19 +31,48 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
     List<Delivery> findByInvoiceIdAndStatus(@Param("invoiceId") Long invoiceId,
                                             @Param("status") ShipmentStatus status);
 
+    @Query("""
+            SELECT d FROM Delivery d
+            WHERE d.tenantId = :tenantId
+              AND (:deliveryId IS NULL OR d.id = :deliveryId)
+              AND (:invoiceId IS NULL OR d.invoice.id = :invoiceId)
+              AND (:customerId IS NULL OR d.customerId = :customerId)
+              AND (:shipmentTypes IS NULL OR d.type IN :shipmentTypes)
+              AND (:shipmentStatuses IS NULL OR d.status IN :shipmentStatuses)
+              AND (
+                    (CAST(:fromDate AS timestamp) IS NULL OR d.createdAt >= :fromDate)
+                    AND (CAST(:toDate AS timestamp) IS NULL OR d.createdAt <= :toDate)
+                  )
+              AND (
+                    CAST(:searchQuery AS string) IS NULL
+                    OR LOWER(d.deliveryNumber) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+                  )
+            """)
+    Page<Delivery> findDeliveriesByFilter(
+            @Param("tenantId") Long tenantId,
+            @Param("deliveryId") Long deliveryId,
+            @Param("invoiceId") Long invoiceId,
+            @Param("customerId") Long customerId,
+            @Param("shipmentTypes") List<ShipmentType> shipmentTypes,
+            @Param("shipmentStatuses") List<ShipmentStatus> shipmentStatuses,
+            @Param("searchQuery") String searchQuery,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Pageable pageable
+    );
+
 
     @Query("""
                 SELECT d FROM Delivery d
                 WHERE (:tenantId IS NULL OR d.tenantId = :tenantId)
                   AND (:id IS NULL OR d.id = :id)
-                  AND (:deliveryNumber IS NULL OR d.deliveryNumber LIKE %:deliveryNumber%)
+                  AND (:deliveryNumber IS NULL OR d.deliveryNumber = :deliveryNumber)
                   AND (:invoiceId IS NULL OR d.invoice.id = :invoiceId)
                   AND (:customerId IS NULL OR d.customerId = :customerId)
-                  AND (:type IS NULL OR d.type = :type)
-                  AND (:status IS NULL OR d.status = :status)
-                  AND (:scheduledDate IS NULL OR d.scheduledDate >= :scheduledDate)
-                  AND (:shippedDate IS NULL OR d.shippedDate >= :shippedDate)
-                  AND (:deliveredDate IS NULL OR d.deliveredDate >= :deliveredDate)
+                  AND (:types IS NULL OR d.type IN :types)
+                  AND (:statuses IS NULL OR d.status IN :statuses)
+                  AND (CAST(:fromDate AS timestamp) IS NULL OR d.createdAt >= :fromDate)
+                  AND (CAST(:toDate AS timestamp) IS NULL OR d.createdAt <= :toDate)
             """)
     List<Delivery> searchDeliveries(
             @Param("tenantId") Long tenantId,
@@ -49,11 +80,10 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
             @Param("deliveryNumber") String deliveryNumber,
             @Param("invoiceId") Long invoiceId,
             @Param("customerId") Long customerId,
-            @Param("type") ShipmentType type,
-            @Param("status") ShipmentStatus status,
-            @Param("scheduledDate") Date scheduledDate,
-            @Param("shippedDate") Date shippedDate,
-            @Param("deliveredDate") Date deliveredDate
+            @Param("types") List<ShipmentType> types,
+            @Param("statuses") List<ShipmentStatus> statuses,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
     );
 
 

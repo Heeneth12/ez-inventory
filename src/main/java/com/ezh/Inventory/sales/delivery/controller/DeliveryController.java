@@ -2,6 +2,7 @@ package com.ezh.Inventory.sales.delivery.controller;
 
 
 import com.ezh.Inventory.sales.delivery.dto.*;
+import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -31,9 +32,10 @@ public class DeliveryController {
     }
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<DeliveryDto>> getDeliveryDetails(@RequestParam Integer page, @RequestParam Integer size) throws CommonException {
+    public ResponseResource<Page<DeliveryDto>> getDeliveryDetails(@RequestParam Integer page, @RequestParam Integer size,
+                                                                  @RequestBody DeliveryFilterDto filter) throws CommonException {
         log.info("Fetching all deliveries with page: {} and size: {}", page, size);
-        Page<DeliveryDto> response = deliveryService.getAllDeliveries(page, size);
+        Page<DeliveryDto> response = deliveryService.getAllDeliveries(page, size, filter);
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully");
     }
 
@@ -51,10 +53,11 @@ public class DeliveryController {
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully based on search criteria");
     }
 
-    @PostMapping(value = "/update-status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(@RequestBody DeliveryFilterDto request) throws CommonException {
-        log.info("Update invoices with filter: {}", request);
-        CommonResponse<?> response = deliveryService.updateDeliveryStatus(request);
+    @PostMapping(value = "/{id}/status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(@PathVariable Long id,
+                                                                    @RequestParam ShipmentStatus status) throws CommonException {
+        log.info("Update invoices with status: {}", status);
+        CommonResponse<?> response = deliveryService.updateDeliveryStatus(id, status);
         return ResponseResource.success(HttpStatus.OK, response, "Delivery status updated successfully");
     }
 

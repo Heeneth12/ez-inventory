@@ -1,7 +1,8 @@
 package com.ezh.Inventory.sales.delivery.service;
 
 import com.ezh.Inventory.sales.delivery.dto.*;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceCreateDto;
+import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
+import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
@@ -14,15 +15,15 @@ public interface DeliveryService {
 
     CommonResponse createDeliveryFromInvoice(Long invoiceId) throws CommonException;
 
-    Page<DeliveryDto> getAllDeliveries(int page, int size) throws CommonException;
+    Page<DeliveryDto> getAllDeliveries(int page, int size, DeliveryFilterDto filter) throws CommonException;
 
     DeliveryDto getDeliveryDetail(Long deliveryId) throws CommonException;
 
     List<DeliveryDto> searchDeliveryDetails(DeliveryFilterDto filter) throws CommonException;
 
-    void createDeliveryForInvoice(Invoice invoice, InvoiceCreateDto dto);
+    void createDeliveryForInvoice(Invoice invoice, InvoiceDto dto);
 
-    CommonResponse markAsShipped(Long deliveryId, String trackingNumber);
+    CommonResponse<?> markAsShipped(Long deliveryId, String trackingNumber);
 
     CommonResponse<?> markAsDelivered(Long deliveryId);
 
@@ -30,7 +31,7 @@ public interface DeliveryService {
 
     CommonResponse<?> rescheduleDelivery(Long deliveryId, Date newDate, String reason) throws CommonException;
 
-    CommonResponse<?> updateDeliveryStatus(DeliveryFilterDto dto) throws CommonException;
+    CommonResponse<?> updateDeliveryStatus(Long id, ShipmentStatus status) throws CommonException;
 
     CommonResponse<?> createRoute(RouteCreateDto dto) throws CommonException;
 
