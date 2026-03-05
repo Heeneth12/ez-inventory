@@ -21,6 +21,7 @@ import com.ezh.Inventory.utils.exception.CommonException;
 import com.ezh.Inventory.utils.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +49,7 @@ public class StockAdjustmentServiceImpl implements StockAdjustmentService {
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final ItemRepository itemRepository;
     private final ApprovalService approvalService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -251,6 +253,75 @@ public class StockAdjustmentServiceImpl implements StockAdjustmentService {
         // Simply mark as Rejected. No stock movement occurs.
         adjustment.setAdjustmentStatus(AdjustmentStatus.REJECTED);
         stockAdjustmentRepository.save(adjustment);
+    }
+
+    @Override
+    @Transactional
+    public CommonResponse<?> updateStockAdjustmentStatus(Long adjustmentId, AdjustmentStatus status) throws CommonException {
+        StockAdjustment adjustment = stockAdjustmentRepository.findById(adjustmentId)
+                .orElseThrow(() -> new CommonException("Adjustment not found", HttpStatus.NOT_FOUND));
+
+        AdjustmentStatus currentStatus = adjustment.getAdjustmentStatus();
+
+        if (currentStatus == AdjustmentStatus.CANCELLED || currentStatus == AdjustmentStatus.REJECTED) {
+            throw new BadRequestException("Adjustment is already " + currentStatus + " and cannot be updated");
+        }
+
+        if (currentStatus == status) {
+            return CommonResponse.builder()
+                    .id(String.valueOf(adjustment.getId()))
+                    .status(Status.SUCCESS)
+                    .message("Adjustment status is already " + status)
+                    .build();
+        }
+
+        switch (status) {
+            case COMPLETED:
+                if (currentStatus != AdjustmentStatus.PENDING_APPROVAL) {
+                    throw new BadRequestException("Only PENDING_APPROVAL adjustment can be moved to COMPLETED");
+                }
+
+                ApprovalDecisionEvent approvalEvent = new ApprovalDecisionEvent(
+                        this,
+                        ApprovalType.STOCK_ADJUSTMENT,
+                        adjustment.getId(),
+                        ApprovalStatus.APPROVED
+                );
+                eventPublisher.publishEvent(approvalEvent);
+                break;
+
+            case REJECTED:
+                if (currentStatus != AdjustmentStatus.PENDING_APPROVAL) {
+                    throw new BadRequestException("Only PENDING_APPROVAL adjustment can be rejected");
+                }
+                rejectStockAdjustment(adjustmentId);
+                break;
+
+            case CANCELLED:
+                if (currentStatus == AdjustmentStatus.COMPLETED) {
+                    throw new BadRequestException("Completed adjustment cannot be cancelled");
+                }
+                adjustment.setAdjustmentStatus(AdjustmentStatus.CANCELLED);
+                stockAdjustmentRepository.save(adjustment);
+                break;
+
+            case PENDING_APPROVAL:
+                if (currentStatus != AdjustmentStatus.DRAFT) {
+                    throw new BadRequestException("Only DRAFT adjustment can be moved to PENDING_APPROVAL");
+                }
+                adjustment.setAdjustmentStatus(AdjustmentStatus.PENDING_APPROVAL);
+                stockAdjustmentRepository.save(adjustment);
+                break;
+
+            default:
+                throw new BadRequestException("Unsupported status update request: " + status);
+        }
+
+        return CommonResponse.builder()
+                .id(String.valueOf(adjustmentId))
+                .status(Status.SUCCESS)
+                .message("Stock adjustment status updated to " + status)
+                .build();
     }
 
     @Override

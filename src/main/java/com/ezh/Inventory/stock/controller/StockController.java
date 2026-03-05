@@ -1,6 +1,7 @@
 package com.ezh.Inventory.stock.controller;
 
 import com.ezh.Inventory.stock.dto.*;
+import com.ezh.Inventory.stock.entity.AdjustmentStatus;
 import com.ezh.Inventory.stock.service.StockAdjustmentService;
 import com.ezh.Inventory.stock.service.StockService;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -75,6 +76,15 @@ public class StockController {
         log.info("Entered get getStockAdjustmentById with {}", adjustmentId);
         StockAdjustmentDetailDto response = stockAdjustmentService.getStockAdjustmentById(adjustmentId);
         return ResponseResource.success(HttpStatus.OK, response, "fetched stock adjustment");
+    }
+
+
+    @PatchMapping(path = "/adjustment/{adjustmentId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updateStockAdjustmentStatus(@PathVariable Long adjustmentId,
+                                                                           @RequestParam AdjustmentStatus status) throws CommonException {
+        log.info("Entered updateStockAdjustmentStatus with id {} and status {}", adjustmentId, status);
+        CommonResponse<?> response = stockAdjustmentService.updateStockAdjustmentStatus(adjustmentId, status);
+        return ResponseResource.success(HttpStatus.OK, response, "Stock adjustment status updated successfully");
     }
 
     @GetMapping(path = "/summary/{warehouseId}", produces = MediaType.APPLICATION_JSON_VALUE)
