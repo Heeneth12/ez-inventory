@@ -148,6 +148,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                         .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
 
         invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
+        invoice.setStatus(InvoiceStatus.ISSUED);
         invoiceRepository.save(invoice);
 
         delivery.setStatus(ShipmentStatus.DELIVERED);
@@ -264,6 +265,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         if(status.equals(ShipmentStatus.DELIVERED)){
             delivery.setDeliveredDate(new Date());
             invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
+            invoice.setStatus(InvoiceStatus.ISSUED);
         }
 
         delivery.setStatus(status);
