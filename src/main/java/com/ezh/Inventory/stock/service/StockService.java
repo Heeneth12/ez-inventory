@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface StockService {
 
-    CommonResponse updateStock(StockUpdateDto stockUpdateDto);
+    CommonResponse<?> updateStock(StockUpdateDto stockUpdateDto);
     Page<StockDto> getCurrentStock(StockFilterDto filterDto, Integer page, Integer size);
     Page<StockLedgerDto> getStockTransactions(StockLedgerFilter filterDto, Integer page, Integer size);
     List<ItemStockSearchDto> searchItemsWithBatches(StockFilterDto filterDto);

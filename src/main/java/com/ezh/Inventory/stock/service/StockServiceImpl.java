@@ -45,7 +45,7 @@ public class StockServiceImpl implements StockService {
 
     @Override
     @Transactional
-    public CommonResponse updateStock(StockUpdateDto dto) throws CommonException {
+    public CommonResponse<?> updateStock(StockUpdateDto dto) throws CommonException {
 
         if (dto.getQuantity() == null || dto.getQuantity() <= 0) {
             throw new BadRequestException("Invalid quantity");

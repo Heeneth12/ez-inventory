@@ -254,6 +254,36 @@ public class StockAdjustmentServiceImpl implements StockAdjustmentService {
     }
 
     @Override
+    @Transactional
+    public CommonResponse<?> updateStockAdjustmentStatus(Long adjustmentId, AdjustmentStatus status) throws CommonException {
+        StockAdjustment adjustment = stockAdjustmentRepository.findById(adjustmentId)
+                .orElseThrow(() -> new CommonException("Adjustment not found", HttpStatus.NOT_FOUND));
+
+        AdjustmentStatus currentStatus = adjustment.getAdjustmentStatus();
+
+        if (currentStatus == status) {
+            return CommonResponse.builder()
+                    .id(String.valueOf(adjustment.getId()))
+                    .status(Status.SUCCESS)
+                    .message("Adjustment status is already " + status)
+                    .build();
+        }
+
+        if (status != AdjustmentStatus.CANCELLED && status != AdjustmentStatus.REJECTED) {
+            throw new BadRequestException("Only CANCELLED or REJECTED status updates are allowed");
+        }
+
+        adjustment.setAdjustmentStatus(status);
+        stockAdjustmentRepository.save(adjustment);
+
+        return CommonResponse.builder()
+                .id(String.valueOf(adjustmentId))
+                .status(Status.SUCCESS)
+                .message("Stock adjustment status updated to " + status)
+                .build();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public StockAdjustmentDetailDto getStockAdjustmentById(Long id) {
         StockAdjustment adjustment = stockAdjustmentRepository.findById(id)
