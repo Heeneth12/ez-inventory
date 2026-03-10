@@ -82,10 +82,19 @@ public class InvoiceServiceImpl implements InvoiceService {
         // 4. Save to generate ID
         invoice = invoiceRepository.save(invoice);
 
-        // 5. Deduct Stock (Using unified helper)
+        // 5. Deduct Stock (Using unified helper) and persist actual batch consumed
         for (InvoiceItem item : invoice.getItems()) {
-            updateStockHelper(invoice.getWarehouseId(), invoice.getId(), item.getItemId(), item.getQuantity(), MovementType.OUT, item.getBatchNumber());
+            String consumedBatch = updateStockHelper(
+                    invoice.getWarehouseId(),
+                    invoice.getId(),
+                    item.getItemId(),
+                    item.getQuantity(),
+                    MovementType.OUT,
+                    item.getBatchNumber()
+            );
+            item.setBatchNumber(consumedBatch);
         }
+        invoiceRepository.save(invoice);
 
         // create delivery for invoice
         deliveryService.createDeliveryForInvoice(invoice, dto);
@@ -142,8 +151,17 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoiceRepository.save(invoice);
 
         for (InvoiceItem newItem : invoice.getItems()) {
-            updateStockHelper(invoice.getWarehouseId(), invoice.getId(), newItem.getItemId(), newItem.getQuantity(), MovementType.OUT, newItem.getBatchNumber());
+            String consumedBatch = updateStockHelper(
+                    invoice.getWarehouseId(),
+                    invoice.getId(),
+                    newItem.getItemId(),
+                    newItem.getQuantity(),
+                    MovementType.OUT,
+                    newItem.getBatchNumber()
+            );
+            newItem.setBatchNumber(consumedBatch);
         }
+        invoiceRepository.save(invoice);
 
         if (invoice.getSalesOrder() != null) {
             updateSalesOrderStatus(invoice.getSalesOrder());
@@ -268,7 +286,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         salesOrderRepository.save(salesOrder);
     }
 
-    private void updateStockHelper(Long warehouseId, Long invoiceId, Long itemId, int qty, MovementType type, String batch) {
+    private String updateStockHelper(Long warehouseId, Long invoiceId, Long itemId, int qty, MovementType type, String batch) {
         StockUpdateDto stockUpdate = StockUpdateDto.builder()
                 .itemId(itemId)
                 .warehouseId(warehouseId)
@@ -278,7 +296,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .referenceId(invoiceId)
                 .batchNumber(batch)
                 .build();
-        stockService.updateStock(stockUpdate);
+        CommonResponse<?> response = stockService.updateStock(stockUpdate);
+        Object data = response != null ? response.getData() : null;
+        return data != null ? data.toString() : batch;
     }
 
     private InvoiceDto mapToDto(Invoice invoice, Map<Long, UserMiniDto> customerMap, boolean includeContact) {

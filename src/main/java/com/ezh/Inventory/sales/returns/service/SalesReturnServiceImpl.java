@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -69,10 +70,25 @@ public class SalesReturnServiceImpl implements SalesReturnService {
 
         for (ReturnItemRequest itemReq : request.getItems()) {
 
-            InvoiceItem originalSoldItem = invoice.getItems().stream()
+            List<InvoiceItem> matchingItems = invoice.getItems().stream()
                     .filter(i -> i.getItemId().equals(itemReq.getItemId()))
-                    .findFirst()
-                    .orElseThrow(() -> new CommonException("Item not found in invoice", HttpStatus.NOT_FOUND));
+                    .collect(Collectors.toList());
+
+            if (matchingItems.isEmpty()) {
+                throw new CommonException("Item not found in invoice", HttpStatus.NOT_FOUND);
+            }
+
+            InvoiceItem originalSoldItem;
+            if (itemReq.getBatchNumber() != null && !itemReq.getBatchNumber().isBlank()) {
+                originalSoldItem = matchingItems.stream()
+                        .filter(i -> itemReq.getBatchNumber().equals(i.getBatchNumber()))
+                        .findFirst()
+                        .orElseThrow(() -> new CommonException("Batch not found for item in invoice", HttpStatus.NOT_FOUND));
+            } else if (matchingItems.size() == 1) {
+                originalSoldItem = matchingItems.get(0);
+            } else {
+                throw new CommonException("Multiple batches found for item. Please provide batchNumber.", HttpStatus.BAD_REQUEST);
+            }
 
             // --- FIX B: Check for PREVIOUS returns ---
             // You need a helper method or field on InvoiceItem to track 'returnedQty'
@@ -91,6 +107,10 @@ public class SalesReturnServiceImpl implements SalesReturnService {
 
             // --- BATCH LOGIC ---
             String batchNum = originalSoldItem.getBatchNumber();
+            if (batchNum == null || batchNum.isBlank()) {
+                throw new CommonException("Batch number is missing in invoice item. Please update invoice data before return.", HttpStatus.BAD_REQUEST);
+            }
+
             StockBatch batch = stockBatchRepository
                     .findByItemIdAndBatchNumberAndWarehouseId(itemReq.getItemId(), batchNum, invoice.getWarehouseId())
                     .orElseThrow(() -> new RuntimeException("Original Batch details not found"));
@@ -111,6 +131,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
             SalesReturnItem returnItem = SalesReturnItem.builder()
                     .salesReturn(salesReturn)
                     .itemId(itemReq.getItemId())
+                    .batchNumber(batchNum)
                     .quantity(itemReq.getQuantity())
                     .unitPrice(actualPaidPerUnit)
                     .reason(request.getReason())
@@ -186,6 +207,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .map(item -> SalesReturnItemDto.builder()
                         .id(item.getId())
                         .itemId(item.getItemId())
+                        .batchNumber(item.getBatchNumber())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .reason(item.getReason())

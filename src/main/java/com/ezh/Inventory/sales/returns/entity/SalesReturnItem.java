@@ -22,6 +22,9 @@ public class SalesReturnItem extends CommonSerializable {
     @JoinColumn(name = "item_id", nullable = false)
     private Long itemId;
 
+    @Column(name = "batch_number")
+    private String batchNumber;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 

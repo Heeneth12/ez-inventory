@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 public class SalesReturnItemDto {
     private Long id;
     private Long itemId;
+    private String batchNumber;
     private Integer quantity;
     private BigDecimal unitPrice;
     private String reason;
