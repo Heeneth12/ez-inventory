@@ -31,6 +31,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             SELECT i FROM Invoice i
             WHERE i.tenantId = :tenantId
               AND (:id IS NULL OR i.id = :id)
+              AND (:invoiceNumber IS NULL OR i.invoiceNumber = :invoiceNumber)
               AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
               AND (:statuses IS NULL OR i.status IN :statuses)
               AND (:customerId IS NULL OR i.customerId = :customerId)
@@ -39,6 +40,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<Invoice> searchInvoices(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
+            @Param("invoiceNumber") String invoiceNumber,
             @Param("salesOrderId") Long salesOrderId,
             @Param("statuses") List<InvoiceStatus> statuses,
             @Param("customerId") Long customerId,

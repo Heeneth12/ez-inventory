@@ -19,6 +19,8 @@ import com.ezh.Inventory.stock.repository.StockBatchRepository;
 import com.ezh.Inventory.stock.service.StockService;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonResponse;
+import com.ezh.Inventory.utils.common.DocPrefix;
+import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +62,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
 
         SalesReturn salesReturn = SalesReturn.builder()
                 .tenantId(tenantId)
-                .returnNumber("SR-" + System.currentTimeMillis())
+                .returnNumber(DocumentNumberUtil.generate(DocPrefix.SR))
                 .invoice(invoice)
                 .returnDate(new Date())
                 .items(new ArrayList<>())
@@ -146,7 +148,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                     .quantity(itemReq.getQuantity())
                     .transactionType(MovementType.IN)
                     .referenceType(ReferenceType.SALES_RETURN)
-                    .referenceId(invoice.getId())
+                    .referenceId(salesReturn.getId())
                     .remarks("Returned from Invoice " + invoice.getInvoiceNumber())
                     .batchNumber(batchNum)
 

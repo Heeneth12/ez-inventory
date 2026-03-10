@@ -28,6 +28,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             SELECT so FROM SalesOrder so
             WHERE so.tenantId = :tenantId
               AND (:id IS NULL OR so.id = :id)
+              AND (:soNumber IS NULL OR so.orderNumber = :soNumber)
               AND (:statuses IS NULL OR so.status IN :statuses)
               AND (:customerId IS NULL OR so.customerId = :customerId)
               AND (:warehouseId IS NULL OR so.warehouseId = :warehouseId)
@@ -35,6 +36,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     List<SalesOrder> getAllSalesOrders(
             @Param("tenantId") Long tenantId,
             @Param("id") Long id,
+            @Param("soNumber") String soNumber,
             @Param("statuses") List<SalesOrderStatus> statuses,
             @Param("customerId") Long customerId,
             @Param("warehouseId") Long warehouseId

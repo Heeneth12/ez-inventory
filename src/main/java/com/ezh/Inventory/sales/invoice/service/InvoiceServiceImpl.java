@@ -243,6 +243,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<Invoice> invoices = invoiceRepository.searchInvoices(
                 tenantId,
                 filter.getId(),
+                filter.getInvoiceNumber(),
                 filter.getSalesOrderId(),
                 filter.getInvStatuses(),
                 filter.getCustomerId(),

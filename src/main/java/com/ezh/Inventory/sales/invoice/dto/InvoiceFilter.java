@@ -16,6 +16,7 @@ import java.util.List;
 public class InvoiceFilter extends CommonFilter {
     private Long customerId;
     private Long salesOrderId;
+    private String InvoiceNumber;
     private List<InvoiceStatus> invStatuses;
     private List<InvoicePaymentStatus> paymentStatus;
 }

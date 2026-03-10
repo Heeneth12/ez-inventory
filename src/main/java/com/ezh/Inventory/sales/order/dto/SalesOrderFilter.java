@@ -18,6 +18,7 @@ import java.util.List;
 @NoArgsConstructor
 public class SalesOrderFilter extends CommonFilter {
     private Long customerId;
+    private String soNumber;
     private List<SalesOrderSource> soSource;
     private List<SalesOrderStatus> soStatuses;
 }

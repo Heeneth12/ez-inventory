@@ -194,6 +194,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrder> orders = salesOrderRepository.getAllSalesOrders(
                 tenantId,
                 filter.getId(),
+                filter.getSoNumber(),
                 filter.getSoStatuses(),
                 filter.getCustomerId(),
                 filter.getWarehouseId()
