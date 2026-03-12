@@ -9,6 +9,7 @@ import com.ezh.Inventory.stock.entity.StockLedger;
 import com.ezh.Inventory.stock.repository.StockBatchRepository;
 import com.ezh.Inventory.stock.repository.StockLedgerRepository;
 import com.ezh.Inventory.stock.repository.StockRepository;
+import com.ezh.Inventory.stock.utils.StockLedgerExportUtils;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.exception.BadRequestException;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -187,6 +189,30 @@ public class StockServiceImpl implements StockService {
                 pageable
         );
         return stockLedger.map(this::convertToDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ByteArrayInputStream downloadStockLedger(StockLedgerFilter filterDto, String format) {
+        Long tenantId = getTenantIdOrThrow();
+        List<StockLedgerDto> ledgerDtos = stockLedgerRepository.findAllStockLedgerForDownload(
+                        tenantId,
+                        filterDto.getId(),
+                        filterDto.getWarehouseId(),
+                        filterDto.getTransactionTypes(),
+                        filterDto.getReferenceTypes(),
+                        filterDto.getSearchQuery(),
+                        filterDto.getStartDateTime(),
+                        filterDto.getEndDateTime())
+                .stream()
+                .map(this::convertToDTO)
+                .toList();
+
+        if ("csv".equalsIgnoreCase(format)) {
+            return StockLedgerExportUtils.toCsv(ledgerDtos);
+        }
+
+        return StockLedgerExportUtils.toExcel(ledgerDtos);
     }
 
     @Override

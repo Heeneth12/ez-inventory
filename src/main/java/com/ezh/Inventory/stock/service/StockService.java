@@ -6,6 +6,7 @@ import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.exception.CommonException;
 import org.springframework.data.domain.Page;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 public interface StockService {
@@ -13,6 +14,7 @@ public interface StockService {
     CommonResponse<?> updateStock(StockUpdateDto stockUpdateDto);
     Page<StockDto> getCurrentStock(StockFilterDto filterDto, Integer page, Integer size);
     Page<StockLedgerDto> getStockTransactions(StockLedgerFilter filterDto, Integer page, Integer size);
+    ByteArrayInputStream downloadStockLedger(StockLedgerFilter filterDto, String format);
     List<ItemStockSearchDto> searchItemsWithBatches(StockFilterDto filterDto);
     StockDashboardDto getStockDashboard(Long warehouseId) throws CommonException;
 
