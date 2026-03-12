@@ -9,9 +9,13 @@ import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -54,6 +58,24 @@ public class StockController {
         log.info("Entered get stockTransactions with {}", filter);
         Page<StockLedgerDto> response = stockService.getStockTransactions(filter, page, size);
         return ResponseResource.success(HttpStatus.OK, response, "fetched all stock ledger");
+    }
+
+    @PostMapping(value = "/ledger/download", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Resource> downloadStockTransactions(@RequestBody StockLedgerFilter filter,
+                                                              @RequestParam(defaultValue = "excel") String format) {
+        log.info("Entered stock ledger download with format {} and filter {}", format, filter);
+
+        boolean isCsvFormat = "csv".equalsIgnoreCase(format);
+        String extension = isCsvFormat ? "csv" : "xlsx";
+        String mediaType = isCsvFormat
+                ? "text/csv"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        InputStreamResource file = new InputStreamResource(stockService.downloadStockLedger(filter, format));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=stock_ledger." + extension)
+                .contentType(MediaType.parseMediaType(mediaType))
+                .body(file);
     }
 
     @PostMapping(path = "/adjustment", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
