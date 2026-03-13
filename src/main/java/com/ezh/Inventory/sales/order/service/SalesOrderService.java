@@ -2,6 +2,7 @@ package com.ezh.Inventory.sales.order.service;
 
 import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
+import com.ezh.Inventory.sales.order.dto.SalesConversionReportDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.utils.common.CommonFilter;
@@ -26,5 +27,9 @@ public interface SalesOrderService {
     List<SalesOrderDto> getAllSalesOrders(SalesOrderFilter filter) throws CommonException;
 
     SalesOrderStats getStats(CommonFilter filter) throws CommonException;
+
+    byte[] downloadSalesOrdersExcel(SalesOrderFilter filter) throws CommonException;
+
+    SalesConversionReportDto getSalesOrderConversionReport(CommonFilter filter) throws CommonException;
 
 }

@@ -7,7 +7,10 @@ import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
+import com.ezh.Inventory.sales.order.dto.SalesConversionCountProjection;
+import com.ezh.Inventory.sales.order.dto.SalesConversionReportDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
+import com.ezh.Inventory.sales.order.dto.SalesOrderExcelRowDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
 import com.ezh.Inventory.sales.order.dto.SalesOrderItemDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
@@ -16,6 +19,7 @@ import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
+import com.ezh.Inventory.sales.order.utils.SalesOrderExportUtils;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -36,6 +40,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -216,6 +221,78 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 filter.getStartDateTime(),
                 filter.getEndDateTime()
         );
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadSalesOrdersExcel(SalesOrderFilter filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        List<SalesOrder> orders = salesOrderRepository.getAllSalesOrders(
+                tenantId,
+                filter.getId(),
+                filter.getSoStatuses(),
+                filter.getSoSource(),
+                filter.getCustomerId(),
+                filter.getWarehouseId(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
+
+        List<SalesOrderExcelRowDto> rows = orders.stream()
+                .map(so -> SalesOrderExcelRowDto.builder()
+                        .id(so.getId())
+                        .orderNumber(so.getOrderNumber())
+                        .orderDate(so.getOrderDate())
+                        .status(so.getStatus() != null ? so.getStatus().name() : null)
+                        .source(so.getSource() != null ? so.getSource().name() : null)
+                        .customerId(so.getCustomerId())
+                        .warehouseId(so.getWarehouseId())
+                        .itemGrossTotal(so.getItemGrossTotal())
+                        .itemTotalDiscount(so.getItemTotalDiscount())
+                        .itemTotalTax(so.getItemTotalTax())
+                        .grandTotal(so.getGrandTotal())
+                        .remarks(so.getRemarks())
+                        .build())
+                .toList();
+
+        try {
+            return SalesOrderExportUtils.toExcel(rows).readAllBytes();
+        } catch (IOException e) {
+            throw new CommonException("Failed to generate sales order excel", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesConversionReportDto getSalesOrderConversionReport(CommonFilter filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        SalesConversionCountProjection projection = salesOrderRepository.countSalesOrderConversion(
+                tenantId,
+                null,
+                filter.getWarehouseId(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
+
+        long total = projection != null && projection.getTotalSalesOrders() != null ? projection.getTotalSalesOrders() : 0L;
+        long converted = projection != null && projection.getConvertedToInvoice() != null ? projection.getConvertedToInvoice() : 0L;
+        long pending = Math.max(total - converted, 0L);
+        BigDecimal conversionRate = total == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(converted)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+
+        return SalesConversionReportDto.builder()
+                .totalSalesOrders(total)
+                .convertedToInvoice(converted)
+                .pendingConversion(pending)
+                .conversionRate(conversionRate)
+                .build();
     }
 
 
