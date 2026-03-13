@@ -22,6 +22,8 @@ import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.DocPrefix;
 import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -49,6 +54,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
     private final StockService stockService;
     private final PaymentService paymentService;
     private final StockBatchRepository stockBatchRepository;
+    private final AuthServiceClient authServiceClient;
 
 
     @Override
@@ -184,7 +190,15 @@ public class SalesReturnServiceImpl implements SalesReturnService {
 
         Page<SalesReturn> data = salesReturnRepository.findByTenantId(tenantId, pageable);
 
-        return data.map(this::mapToDto);
+        Set<Long> customerIds = data.stream()
+                .map(sr -> sr.getInvoice().getCustomerId())
+                .collect(Collectors.toSet());
+
+        Map<Long, UserMiniDto> customerMap = customerIds.isEmpty()
+                ? new HashMap<>()
+                : authServiceClient.getBulkUserDetails(customerIds.stream().toList());
+
+        return data.map(salesReturn -> mapToDto(salesReturn, customerMap));
     }
 
 
@@ -195,12 +209,16 @@ public class SalesReturnServiceImpl implements SalesReturnService {
         SalesReturn salesReturn = salesReturnRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new CommonException("Sales Return not found with ID: " + id, HttpStatus.NOT_FOUND));
 
-        return mapToDto(salesReturn);
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(
+                List.of(salesReturn.getInvoice().getCustomerId())
+        );
+
+        return mapToDto(salesReturn, customerMap);
     }
 
 
 
-    private SalesReturnDto mapToDto(SalesReturn entity) {
+    private SalesReturnDto mapToDto(SalesReturn entity, Map<Long, UserMiniDto> customerMap) {
 
         if (entity == null) return null;
 
@@ -216,11 +234,17 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                         .build()
                 ).toList();
 
+        UserMiniDto contactMini = customerMap != null
+                ? customerMap.getOrDefault(entity.getInvoice().getCustomerId(), new UserMiniDto())
+                : null;
+
         return SalesReturnDto.builder()
                 .id(entity.getId())
                 .tenantId(entity.getTenantId())
                 .returnNumber(entity.getReturnNumber())
                 .invoiceId(entity.getInvoice().getId())
+                .customerId(entity.getInvoice().getCustomerId())
+                .contactMini(contactMini)
                 .returnDate(entity.getReturnDate())
                 .totalAmount(entity.getTotalAmount())
                 .items(items)
