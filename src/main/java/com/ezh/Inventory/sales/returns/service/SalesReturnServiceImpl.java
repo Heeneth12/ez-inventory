@@ -88,15 +88,10 @@ public class SalesReturnServiceImpl implements SalesReturnService {
             }
 
             InvoiceItem originalSoldItem;
-            if (itemReq.getBatchNumber() != null && !itemReq.getBatchNumber().isBlank()) {
-                originalSoldItem = matchingItems.stream()
-                        .filter(i -> itemReq.getBatchNumber().equals(i.getBatchNumber()))
-                        .findFirst()
-                        .orElseThrow(() -> new CommonException("Batch not found for item in invoice", HttpStatus.NOT_FOUND));
-            } else if (matchingItems.size() == 1) {
+            if (matchingItems.size() == 1) {
                 originalSoldItem = matchingItems.get(0);
             } else {
-                throw new CommonException("Multiple batches found for item. Please provide batchNumber.", HttpStatus.BAD_REQUEST);
+                throw new CommonException("Multiple invoice lines found for item. Please return against a unique item entry.", HttpStatus.BAD_REQUEST);
             }
 
             // --- FIX B: Check for PREVIOUS returns ---

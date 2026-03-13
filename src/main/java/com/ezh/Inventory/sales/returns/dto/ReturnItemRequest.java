@@ -9,6 +9,5 @@ import lombok.*;
 @AllArgsConstructor
 public class ReturnItemRequest {
     private Long itemId;
-    private String batchNumber;
     private Integer quantity;
 }
