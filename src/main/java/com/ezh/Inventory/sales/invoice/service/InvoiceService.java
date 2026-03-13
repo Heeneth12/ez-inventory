@@ -17,4 +17,6 @@ public interface InvoiceService {
    Page<InvoiceDto> getAllInvoices(InvoiceFilter filter, Integer page, Integer size) throws CommonException;
    List<InvoiceDto> searchInvoices(InvoiceFilter filter) throws CommonException;
    CommonResponse updateInvoiceStatus(Long invoiceId, InvoiceStatus status) throws CommonException;
+
+   byte[] downloadInvoicesExcel(InvoiceFilter filter) throws CommonException;
 }

@@ -4,10 +4,12 @@ import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
+import com.ezh.Inventory.sales.invoice.dto.InvoiceExcelRowDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceItemDto;
 import com.ezh.Inventory.sales.invoice.entity.*;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
+import com.ezh.Inventory.sales.invoice.utils.InvoiceExportUtils;
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
@@ -35,6 +37,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -251,6 +254,53 @@ public class InvoiceServiceImpl implements InvoiceService {
         );
         final Map<Long, UserMiniDto> finalMap = new HashMap<>();
         return invoices.stream().map(inv -> mapToDto(inv, finalMap, false)).toList();
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadInvoicesExcel(InvoiceFilter filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        List<Invoice> invoices = invoiceRepository.getAllInvoices(
+                tenantId,
+                filter.getId(),
+                filter.getSalesOrderId(),
+                filter.getInvStatuses(),
+                filter.getPaymentStatus(),
+                filter.getCustomerId(),
+                filter.getWarehouseId(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
+
+        List<InvoiceExcelRowDto> rows = invoices.stream()
+                .map(invoice -> InvoiceExcelRowDto.builder()
+                        .id(invoice.getId())
+                        .invoiceNumber(invoice.getInvoiceNumber())
+                        .invoiceDate(invoice.getInvoiceDate())
+                        .salesOrderId(invoice.getSalesOrder() != null ? invoice.getSalesOrder().getId() : null)
+                        .salesOrderNumber(invoice.getSalesOrder() != null ? invoice.getSalesOrder().getOrderNumber() : null)
+                        .status(invoice.getStatus() != null ? invoice.getStatus().name() : null)
+                        .paymentStatus(invoice.getPaymentStatus() != null ? invoice.getPaymentStatus().name() : null)
+                        .customerId(invoice.getCustomerId())
+                        .warehouseId(invoice.getWarehouseId())
+                        .itemGrossTotal(invoice.getItemGrossTotal())
+                        .itemTotalDiscount(invoice.getItemTotalDiscount())
+                        .itemTotalTax(invoice.getItemTotalTax())
+                        .grandTotal(invoice.getGrandTotal())
+                        .amountPaid(invoice.getAmountPaid())
+                        .balance(invoice.getBalance())
+                        .remarks(invoice.getRemarks())
+                        .build())
+                .toList();
+
+        try {
+            return InvoiceExportUtils.toExcel(rows).readAllBytes();
+        } catch (IOException e) {
+            throw new CommonException("Failed to generate invoice excel", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     private void updateSalesOrderStatus(SalesOrder salesOrder) {

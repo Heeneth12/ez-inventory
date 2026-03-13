@@ -72,6 +72,18 @@ public class InvoiceController {
         return ResponseResource.success(HttpStatus.OK, response, "Invoice fetched successfully");
     }
 
+
+    @PostMapping(value = "/download", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<byte[]> downloadInvoicesExcel(@RequestBody InvoiceFilter filter) throws CommonException {
+        log.info("Downloading invoice report in excel with filter: {}", filter);
+        byte[] response = invoiceService.downloadInvoicesExcel(filter);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoices.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(response);
+    }
+
+
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Long id) {
         try {

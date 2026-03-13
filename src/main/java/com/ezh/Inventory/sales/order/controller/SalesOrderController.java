@@ -1,5 +1,6 @@
 package com.ezh.Inventory.sales.order.controller;
 
+import com.ezh.Inventory.sales.order.dto.SalesConversionReportDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
 import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
 import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
@@ -12,7 +13,9 @@ import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,6 +79,25 @@ public class SalesOrderController {
         SalesOrderStats response = salesOrderService.getStats(filter);
         return ResponseResource.success(HttpStatus.OK, response, "Sales Orders stats Fetched ");
     }
+
+
+    @PostMapping(value = "/download", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<byte[]> downloadSalesOrdersExcel(@RequestBody SalesOrderFilter filter) throws CommonException {
+        log.info("Downloading Sales Orders report in excel with filter: {}", filter);
+        byte[] response = salesOrderService.downloadSalesOrdersExcel(filter);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=sales_orders.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(response);
+    }
+
+    @PostMapping(value = "/conversion-report", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<List<SalesConversionReportDto>> getSalesOrderConversionReport(@RequestBody CommonFilter filter) throws CommonException {
+        log.info("Fetching sales order conversion report with filter: {}", filter);
+        List<SalesConversionReportDto> response = salesOrderService.getSalesOrderConversionReport(filter);
+        return ResponseResource.success(HttpStatus.OK, response, "Sales order conversion report fetched successfully");
+    }
+
 
 //    @PostMapping(value = "/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
 //    public ResponseResource<CommonResponse> deleteSalesOrder(@PathVariable Long id) throws CommonException {
