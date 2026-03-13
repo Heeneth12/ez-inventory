@@ -37,7 +37,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -296,11 +295,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .build())
                 .toList();
 
-        try {
-            return InvoiceExportUtils.toExcel(rows).readAllBytes();
-        } catch (IOException e) {
-            throw new CommonException("Failed to generate invoice excel", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        return InvoiceExportUtils.toExcel(rows).readAllBytes();
     }
 
     private void updateSalesOrderStatus(SalesOrder salesOrder) {

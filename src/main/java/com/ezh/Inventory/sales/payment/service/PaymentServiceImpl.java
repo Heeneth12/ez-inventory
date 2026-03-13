@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.payment.service;
 
-import com.ezh.Inventory.contacts.repository.ContactRepository;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceMiniDto;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.entity.InvoicePaymentStatus;
@@ -13,9 +12,7 @@ import com.ezh.Inventory.sales.payment.entity.PaymentStatus;
 import com.ezh.Inventory.sales.payment.repository.PaymentAllocationRepository;
 import com.ezh.Inventory.sales.payment.repository.PaymentRepository;
 import com.ezh.Inventory.utils.UserContextUtil;
-import com.ezh.Inventory.utils.common.CommonFilter;
-import com.ezh.Inventory.utils.common.CommonResponse;
-import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.*;
 import com.ezh.Inventory.utils.common.client.AuthServiceClient;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.BadRequestException;
@@ -40,18 +37,17 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository allocationRepository;
     private final InvoiceRepository invoiceRepository;
-    private final ContactRepository contactRepository;
     private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
-    public CommonResponse recordPayment(PaymentCreateDto dto) throws CommonException {
+    public CommonResponse<?> recordPayment(PaymentCreateDto dto) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         // 1. Create Payment Header (Source of Funds)
         Payment payment = Payment.builder()
                 .tenantId(tenantId)
-                .paymentNumber("PAY-" + System.currentTimeMillis())
+                .paymentNumber(DocumentNumberUtil.generate(DocPrefix.PAY))
                 .customerId(dto.getCustomerId())
                 .paymentDate(new Date())
                 .amount(dto.getTotalAmount())
@@ -200,11 +196,9 @@ public class PaymentServiceImpl implements PaymentService {
     public CommonResponse createCreditNote(Long customerId, BigDecimal amount, String returnRefNumber) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        String creditNoteNumber = "CN-" + System.currentTimeMillis();
-
         Payment creditNote = Payment.builder()
                 .tenantId(tenantId)
-                .paymentNumber(creditNoteNumber)
+                .paymentNumber(DocumentNumberUtil.generate(DocPrefix.CN))
                 .customerId(customerId)
                 .paymentDate(new Date())
                 .amount(amount)
@@ -322,7 +316,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Create Payment as an "Advance"
         Payment payment = Payment.builder()
                 .tenantId(tenantId)
-                .paymentNumber("ADV-" + System.currentTimeMillis())
+                .paymentNumber(DocumentNumberUtil.generate(DocPrefix.ADV))
                 .customerId(dto.getCustomerId())
                 .paymentDate(new Date())
                 .amount(dto.getAmount())

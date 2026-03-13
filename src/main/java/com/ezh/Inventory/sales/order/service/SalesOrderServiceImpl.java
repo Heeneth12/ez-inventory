@@ -7,13 +7,7 @@ import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
-import com.ezh.Inventory.sales.order.dto.SalesConversionCountProjection;
-import com.ezh.Inventory.sales.order.dto.SalesConversionReportDto;
-import com.ezh.Inventory.sales.order.dto.SalesOrderDto;
-import com.ezh.Inventory.sales.order.dto.SalesOrderExcelRowDto;
-import com.ezh.Inventory.sales.order.dto.SalesOrderFilter;
-import com.ezh.Inventory.sales.order.dto.SalesOrderItemDto;
-import com.ezh.Inventory.sales.order.dto.SalesOrderStats;
+import com.ezh.Inventory.sales.order.dto.*;
 import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
@@ -40,7 +34,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -258,11 +251,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .build())
                 .toList();
 
-        try {
-            return SalesOrderExportUtils.toExcel(rows).readAllBytes();
-        } catch (IOException e) {
-            throw new CommonException("Failed to generate sales order excel", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        return SalesOrderExportUtils.toExcel(rows).readAllBytes();
     }
 
     @Override

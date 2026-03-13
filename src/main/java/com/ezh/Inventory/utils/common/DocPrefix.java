@@ -7,6 +7,7 @@ public enum DocPrefix {
     SR,   // Sales Return
     DEL,  // Delivery
     PAY,  // Payment
+    ADV,
     CN,   // Credit Note
     VEN,  // Vendor
     CUS,  // Customer
