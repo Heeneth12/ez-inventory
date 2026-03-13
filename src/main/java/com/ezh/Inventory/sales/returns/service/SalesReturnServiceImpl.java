@@ -75,6 +75,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .build();
 
         BigDecimal totalRefundAmount = BigDecimal.ZERO;
+        List<StockUpdateDto> stockUpdates = new ArrayList<>();
 
         for (ReturnItemRequest itemReq : request.getItems()) {
 
@@ -154,19 +155,22 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                     .quantity(itemReq.getQuantity())
                     .transactionType(MovementType.IN)
                     .referenceType(ReferenceType.SALES_RETURN)
-                    .referenceId(salesReturn.getId())
                     .remarks("Returned from Invoice " + invoice.getInvoiceNumber())
                     .batchNumber(batchNum)
 
                     // CORRECT: Use the Batch Cost so Inventory Value is restored accurately
                     .unitPrice(originalBuyPrice)
                     .build();
-
-            stockService.updateStock(stockDto);
+            stockUpdates.add(stockDto);
         }
 
         salesReturn.setTotalAmount(totalRefundAmount);
         SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
+
+        for (StockUpdateDto stockDto : stockUpdates) {
+            stockDto.setReferenceId(savedReturn.getId());
+            stockService.updateStock(stockDto);
+        }
 
         paymentService.createCreditNote(
                 invoice.getCustomerId(),
