@@ -124,6 +124,28 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             @Param("toDate") LocalDateTime toDate
     );
 
+    @Query("""
+            SELECT
+                FUNCTION('DATE', so.createdAt) AS reportDate,
+                COUNT(so) AS totalSalesOrders,
+                COUNT(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN 1 END) AS convertedToInvoice
+            FROM SalesOrder so
+            WHERE so.tenantId = :tenantId
+              AND (:customerId IS NULL OR so.customerId = :customerId)
+              AND (:warehouseId IS NULL OR so.warehouseId = :warehouseId)
+              AND (CAST(:fromDate AS timestamp) IS NULL OR so.createdAt >= :fromDate)
+              AND (CAST(:toDate AS timestamp) IS NULL OR so.createdAt <= :toDate)
+            GROUP BY FUNCTION('DATE', so.createdAt)
+            ORDER BY FUNCTION('DATE', so.createdAt)
+            """)
+    List<SalesConversionDateProjection> getSalesOrderConversionReport(
+            @Param("tenantId") Long tenantId,
+            @Param("customerId") Long customerId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
 
     @Query("""
             SELECT 

@@ -12,6 +12,7 @@ import com.ezh.Inventory.sales.order.entity.SalesOrder;
 import com.ezh.Inventory.sales.order.entity.SalesOrderItem;
 import com.ezh.Inventory.sales.order.entity.SalesOrderSource;
 import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
+import com.ezh.Inventory.sales.order.repository.SalesConversionDateProjection;
 import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
 import com.ezh.Inventory.sales.order.utils.SalesOrderExportUtils;
 import com.ezh.Inventory.utils.UserContextUtil;
@@ -256,10 +257,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public SalesConversionReportDto getSalesOrderConversionReport(CommonFilter filter) throws CommonException {
+    public List<SalesConversionReportDto> getSalesOrderConversionReport(CommonFilter filter) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        SalesConversionCountProjection projection = salesOrderRepository.countSalesOrderConversion(
+        List<SalesConversionDateProjection> projections = salesOrderRepository.getSalesOrderConversionReport(
                 tenantId,
                 null,
                 filter.getWarehouseId(),
@@ -267,21 +268,24 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 filter.getEndDateTime()
         );
 
-        long total = projection != null && projection.getTotalSalesOrders() != null ? projection.getTotalSalesOrders() : 0L;
-        long converted = projection != null && projection.getConvertedToInvoice() != null ? projection.getConvertedToInvoice() : 0L;
-        long pending = Math.max(total - converted, 0L);
-        BigDecimal conversionRate = total == 0
-                ? BigDecimal.ZERO
-                : BigDecimal.valueOf(converted)
-                .multiply(BigDecimal.valueOf(100))
-                .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+        return projections.stream().map(projection -> {
+            long total = projection.getTotalSalesOrders() != null ? projection.getTotalSalesOrders() : 0L;
+            long converted = projection.getConvertedToInvoice() != null ? projection.getConvertedToInvoice() : 0L;
+            long pending = Math.max(total - converted, 0L);
+            BigDecimal conversionRate = total == 0
+                    ? BigDecimal.ZERO
+                    : BigDecimal.valueOf(converted)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
 
-        return SalesConversionReportDto.builder()
-                .totalSalesOrders(total)
-                .convertedToInvoice(converted)
-                .pendingConversion(pending)
-                .conversionRate(conversionRate)
-                .build();
+            return SalesConversionReportDto.builder()
+                    .reportDate(projection.getReportDate() != null ? projection.getReportDate() : null)
+                    .totalSalesOrders(total)
+                    .convertedToInvoice(converted)
+                    .pendingConversion(pending)
+                    .conversionRate(conversionRate)
+                    .build();
+        }).toList();
     }
 
 

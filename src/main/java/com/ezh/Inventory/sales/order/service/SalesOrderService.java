@@ -30,6 +30,6 @@ public interface SalesOrderService {
 
     byte[] downloadSalesOrdersExcel(SalesOrderFilter filter) throws CommonException;
 
-    SalesConversionReportDto getSalesOrderConversionReport(CommonFilter filter) throws CommonException;
+    List<SalesConversionReportDto> getSalesOrderConversionReport(CommonFilter filter) throws CommonException;
 
 }

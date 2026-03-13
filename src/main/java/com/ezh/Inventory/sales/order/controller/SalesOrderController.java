@@ -92,9 +92,9 @@ public class SalesOrderController {
     }
 
     @PostMapping(value = "/conversion-report", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<SalesConversionReportDto> getSalesOrderConversionReport(@RequestBody CommonFilter filter) throws CommonException {
+    public ResponseResource<List<SalesConversionReportDto>> getSalesOrderConversionReport(@RequestBody CommonFilter filter) throws CommonException {
         log.info("Fetching sales order conversion report with filter: {}", filter);
-        SalesConversionReportDto response = salesOrderService.getSalesOrderConversionReport(filter);
+        List<SalesConversionReportDto> response = salesOrderService.getSalesOrderConversionReport(filter);
         return ResponseResource.success(HttpStatus.OK, response, "Sales order conversion report fetched successfully");
     }
 
