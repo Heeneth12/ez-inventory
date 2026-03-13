@@ -15,8 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -81,7 +81,7 @@ public class SalesOrderController {
     }
 
 
-    @PostMapping(value = "/download", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/bulk/download")
     public ResponseEntity<byte[]> downloadSalesOrdersExcel(@RequestBody SalesOrderFilter filter) throws CommonException {
         log.info("Downloading Sales Orders report in excel with filter: {}", filter);
         byte[] response = salesOrderService.downloadSalesOrdersExcel(filter);
