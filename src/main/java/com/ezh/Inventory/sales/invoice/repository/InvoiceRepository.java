@@ -98,4 +98,37 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("toDate") LocalDateTime toDate,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT i FROM Invoice i
+            WHERE i.tenantId = :tenantId
+              AND (:id IS NULL OR i.id = :id)
+              AND (:salesOrderId IS NULL OR i.salesOrder.id = :salesOrderId)
+              AND (:statuses IS NULL OR i.status IN :statuses)
+              AND (:paymentStatuses IS NULL OR i.paymentStatus IN :paymentStatuses)
+              AND (:customerId IS NULL OR i.customerId = :customerId)
+              AND (:warehouseId IS NULL OR i.warehouseId = :warehouseId)
+              AND (
+                    (CAST(:fromDate AS timestamp) IS NULL OR i.createdAt >= :fromDate)
+                    AND (CAST(:toDate AS timestamp) IS NULL OR i.createdAt <= :toDate)
+                  )
+              AND (
+                    CAST(:searchQuery AS string) IS NULL
+                    OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+                    OR LOWER(i.remarks) LIKE LOWER(CONCAT('%', CAST(:searchQuery AS string), '%'))
+                  )
+            """)
+    List<Invoice> getAllInvoices(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("salesOrderId") Long salesOrderId,
+            @Param("statuses") List<InvoiceStatus> statuses,
+            @Param("paymentStatuses") List<InvoicePaymentStatus> paymentStatuses,
+            @Param("customerId") Long customerId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("searchQuery") String searchQuery,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
 }
