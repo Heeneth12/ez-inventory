@@ -32,8 +32,9 @@ public class PdfGeneratorService {
     /**
      * Generates a Payment Confirmation / Receipt PDF
      */
-    public byte[] generatePaymentPdf(Payment payment, UserMiniDto customer) throws DocumentException, IOException {
+    public byte[] generatePaymentPdf(Payment payment, UserMiniDto customer, TenantDto tenant) throws DocumentException, IOException {
         Context context = new Context();
+        context.setVariable("tenant", tenant);
         context.setVariable("payment", payment);
         context.setVariable("customer", customer);
         context.setVariable("allocations", payment.getAllocations());
