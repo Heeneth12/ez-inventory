@@ -215,20 +215,6 @@ public class ContactServiceImpl implements ContactService {
         // We fetch both IDs at once to save network calls
         List<TenantDto> tenantDetails = fetchLiveTenantDetails(List.of(senderId, receiverId), authToken);
 
-        // Map them for easy lookup
-        Map<Long, TenantDto> detailsMap = tenantDetails.stream()
-                .collect(Collectors.toMap(TenantDto::getId, dto -> dto));
-
-        TenantDto senderInfo = detailsMap.get(senderId);
-        TenantDto receiverInfo = detailsMap.get(receiverId);
-
-        // --- Step 2: Create Contact for RECEIVER (The one who accepted) ---
-        // They need to see the SENDER
-        createSingleSideContact(receiverId, senderId, req, senderInfo);
-
-        // --- Step 3: Create Contact for SENDER (The one who asked) ---
-        // They need to see the RECEIVER
-        createSingleSideContact(senderId, receiverId, req, receiverInfo);
     }
 
     private void createSingleSideContact(Long hostTenantId, Long partnerTenantId, NetworkRequest req, TenantDto partnerInfo) {
@@ -236,31 +222,8 @@ public class ContactServiceImpl implements ContactService {
         if (repository.findByTenantIdAndConnectedTenantId(hostTenantId, partnerTenantId).isPresent()) {
             return;
         }
-        // Determine Name and Email (Live > Request > Fallback)
-        String name = (partnerInfo != null && partnerInfo.getTenantName() != null)
-                ? partnerInfo.getTenantName()
-                : "Linked Partner " + partnerTenantId;
 
-        String email = (partnerInfo != null && partnerInfo.getEmail() != null)
-                ? partnerInfo.getEmail()
-                : "network-" + partnerTenantId + "@placeholder.com";
 
-        String phone = (partnerInfo != null) ? partnerInfo.getPhone() : null;
-
-        Contact contact = Contact.builder()
-                .tenantId(hostTenantId)           // <--- Created IN this tenant's scope
-                .connectedTenantId(partnerTenantId) // <--- Pointing TO this partner
-                .networkRequest(req)
-                .contactCode("NET-" + partnerTenantId + "-" + UUID.randomUUID().toString().substring(0,4))
-                .name(name)
-                .email(email)
-                .phone(phone)
-                .contactType(ContactType.BOTH)     // Usually B2B partners are BOTH
-                .active(true)
-                .creditDays(30)
-                .build();
-
-        repository.save(contact);
         log.info("Created Seamless Contact in Tenant {} for Partner {}", hostTenantId, partnerTenantId);
     }
 

@@ -9,6 +9,7 @@ import com.ezh.Inventory.sales.invoice.service.InvoiceService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
 import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.TenantDto;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.CommonException;
 import com.ezh.Inventory.utils.pdfsvc.PdfGeneratorService;
@@ -90,7 +91,9 @@ public class InvoiceController {
             Invoice invoice = invoiceRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Invoice not found"));
             Map<Long, UserMiniDto> userMiniDto = authServiceClient.getBulkUserDetails(List.of(invoice.getCustomerId()));
-            byte[] pdfBytes = pdfGeneratorService.generateInvoicePdf(invoice, userMiniDto.get(invoice.getCustomerId()));
+            TenantDto tenant = authServiceClient.getTenantById(invoice.getTenantId());
+
+            byte[] pdfBytes = pdfGeneratorService.generateInvoicePdf(invoice, userMiniDto.get(invoice.getCustomerId()), tenant);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDispositionFormData("filename", "Invoice-" + invoice.getInvoiceNumber() + ".pdf");

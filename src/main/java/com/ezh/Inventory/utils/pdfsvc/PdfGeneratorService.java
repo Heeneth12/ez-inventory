@@ -2,6 +2,7 @@ package com.ezh.Inventory.utils.pdfsvc;
 
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.payment.entity.Payment;
+import com.ezh.Inventory.utils.common.dto.TenantDto;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +21,9 @@ public class PdfGeneratorService {
     private final TemplateEngine templateEngine;
 
     // Existing Invoice Method
-    public byte[] generateInvoicePdf(Invoice invoice, UserMiniDto customer) throws DocumentException, IOException {
+    public byte[] generateInvoicePdf(Invoice invoice, UserMiniDto customer, TenantDto tenant) throws DocumentException, IOException {
         Context context = new Context();
+        context.setVariable("tenant", tenant);
         context.setVariable("invoice", invoice);
         context.setVariable("customer", customer);
         return renderPdf("invoice_pdf", context);

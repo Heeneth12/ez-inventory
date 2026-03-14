@@ -1,6 +1,7 @@
 package com.ezh.Inventory.utils.common.client;
 
 import com.ezh.Inventory.utils.common.ExternalApiResponse;
+import com.ezh.Inventory.utils.common.dto.TenantDto;
 import com.ezh.Inventory.utils.common.dto.UserDto;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,7 +50,8 @@ public class AuthServiceClient {
                 uri,
                 HttpMethod.GET,
                 entity,
-                new ParameterizedTypeReference<ExternalApiResponse<UserDto>>() {}
+                new ParameterizedTypeReference<ExternalApiResponse<UserDto>>() {
+                }
         );
 
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -93,6 +95,41 @@ public class AuthServiceClient {
         } else {
             log.error("Failed bulk fetch. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
             throw new RuntimeException("Failed to fetch bulk user details");
+        }
+    }
+
+
+    public TenantDto getTenantById(Long tenantId) {
+        URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
+                .path("/api/v1/tenant/{id}")
+                .buildAndExpand(tenantId)
+                .toUri();
+
+        HttpHeaders headers = new HttpHeaders();
+        String token = request.getHeader("Authorization");
+        headers.setBearerAuth(token.replace("Bearer ", ""));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        log.info("Calling Auth Service URL to fetch tenant: {}", uri);
+
+        ResponseEntity<ExternalApiResponse<TenantDto>> response = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                entity,
+                new ParameterizedTypeReference<ExternalApiResponse<TenantDto>>() {
+                }
+        );
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            log.info("Received successful response from Auth Service for tenantId: {}", tenantId);
+            return response.getBody().getData();
+        } else {
+            log.error("Failed to fetch tenant details from Auth Service for tenantId: {}. Status Code: {}, Response Body: {}",
+                    tenantId, response.getStatusCode(), response.getBody());
+            throw new RuntimeException("Failed to fetch tenant details from Auth Service");
         }
     }
 }

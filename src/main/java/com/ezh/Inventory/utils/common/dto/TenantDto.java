@@ -3,11 +3,11 @@ package com.ezh.Inventory.utils.common.dto;
 
 import lombok.*;
 
-@Getter
-@Setter
+import java.util.Set;
+
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class TenantDto {
     private Long id;
     private String tenantUuid;
@@ -16,4 +16,8 @@ public class TenantDto {
     private String email;
     private String phone;
     private Boolean isActive;
+    private UserDto tenantAdmin;
+    private Set<ApplicationDto> applications;
+    private Set<TenantAddressDto> tenantAddress;
+    private TenantDetailsDto tenantDetails;
 }
