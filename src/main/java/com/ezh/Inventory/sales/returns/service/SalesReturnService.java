@@ -8,7 +8,7 @@ import org.springframework.data.domain.Page;
 
 public interface SalesReturnService {
 
-    CommonResponse createSalesReturn(SalesReturnRequestDto request)  throws CommonException;
+    CommonResponse<?> createSalesReturn(SalesReturnRequestDto request)  throws CommonException;
 
     Page<SalesReturnDto> getSalesReturns(Integer page, Integer size) throws CommonException;
 

@@ -56,10 +56,9 @@ public class SalesReturnServiceImpl implements SalesReturnService {
     private final StockBatchRepository stockBatchRepository;
     private final AuthServiceClient authServiceClient;
 
-
     @Override
     @Transactional
-    public CommonResponse createSalesReturn(SalesReturnRequestDto request) {
+    public CommonResponse<?> createSalesReturn(SalesReturnRequestDto request) {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
@@ -74,17 +73,20 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .items(new ArrayList<>())
                 .build();
 
+        // saving for to get ID for stock movement
+        salesReturnRepository.save(salesReturn);
+
         BigDecimal totalRefundAmount = BigDecimal.ZERO;
-        List<StockUpdateDto> stockUpdates = new ArrayList<>();
 
         for (ReturnItemRequest itemReq : request.getItems()) {
 
             List<InvoiceItem> matchingItems = invoice.getItems().stream()
                     .filter(i -> i.getItemId().equals(itemReq.getItemId()))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (matchingItems.isEmpty()) {
-                throw new CommonException("Item not found in invoice", HttpStatus.NOT_FOUND);
+                throw new CommonException("Item " + itemReq.getItemId() + " not found in invoice",
+                        HttpStatus.NOT_FOUND);
             }
 
             InvoiceItem originalSoldItem;
@@ -92,36 +94,55 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 originalSoldItem = matchingItems.stream()
                         .filter(i -> itemReq.getBatchNumber().equals(i.getBatchNumber()))
                         .findFirst()
-                        .orElseThrow(() -> new CommonException("Batch not found for item in invoice", HttpStatus.NOT_FOUND));
+                        .orElseThrow(() -> new CommonException(
+                                "Batch " + itemReq.getBatchNumber()
+                                        + " not found for item in invoice",
+                                HttpStatus.NOT_FOUND));
             } else if (matchingItems.size() == 1) {
-                originalSoldItem = matchingItems.get(0);
+                originalSoldItem = matchingItems.getFirst();
             } else {
-                throw new CommonException("Multiple batches found for item. Please provide batchNumber.", HttpStatus.BAD_REQUEST);
+                throw new CommonException(
+                        "Multiple batches found for item. Please provide batchNumber.",
+                        HttpStatus.BAD_REQUEST);
             }
 
-            // --- FIX B: Check for PREVIOUS returns ---
-            // You need a helper method or field on InvoiceItem to track 'returnedQty'
-            // Assuming InvoiceItem has a field 'returnedQuantity' that you update:
-            int alreadyReturned = originalSoldItem.getReturnedQuantity() != null ? originalSoldItem.getReturnedQuantity() : 0;
-            int remainingQty = originalSoldItem.getQuantity() - alreadyReturned;
+            // 1. Validate Return Quantity is sensible
+            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                throw new CommonException("Return quantity must be greater than zero.",
+                        HttpStatus.BAD_REQUEST);
+            }
 
-            if (itemReq.getQuantity() > remainingQty) {
+            // 2. Validate Against Previous Returns
+            int alreadyReturned = originalSoldItem.getReturnedQuantity() != null
+                    ? originalSoldItem.getReturnedQuantity()
+                    : 0;
+            int maximumAllowedToReturn = originalSoldItem.getQuantity() - alreadyReturned;
+
+            if (itemReq.getQuantity() > maximumAllowedToReturn) {
                 throw new CommonException("Cannot return " + itemReq.getQuantity() +
-                        ". Only " + remainingQty + " remaining for this item.", HttpStatus.BAD_REQUEST);
+                        " of " + originalSoldItem.getItemName() +
+                        ". Total bought: " + originalSoldItem.getQuantity() +
+                        ", Already returned: " + alreadyReturned +
+                        ". You can only return up to " + maximumAllowedToReturn + " more.",
+                        HttpStatus.BAD_REQUEST);
             }
 
-            // Update the InvoiceItem so they can't return it again next time
+            // 3. Update the InvoiceItem tracking column so it can't be returned again next
+            // time
             originalSoldItem.setReturnedQuantity(alreadyReturned + itemReq.getQuantity());
             // invoiceItemRepository.save(originalSoldItem); // If not cascading
 
             // --- BATCH LOGIC ---
             String batchNum = originalSoldItem.getBatchNumber();
             if (batchNum == null || batchNum.isBlank()) {
-                throw new CommonException("Batch number is missing in invoice item. Please update invoice data before return.", HttpStatus.BAD_REQUEST);
+                throw new CommonException(
+                        "Batch number is missing in invoice item. Please update invoice data before return.",
+                        HttpStatus.BAD_REQUEST);
             }
 
             StockBatch batch = stockBatchRepository
-                    .findByItemIdAndBatchNumberAndWarehouseId(itemReq.getItemId(), batchNum, invoice.getWarehouseId())
+                    .findByItemIdAndBatchNumberAndWarehouseId(itemReq.getItemId(), batchNum,
+                            invoice.getWarehouseId())
                     .orElseThrow(() -> new RuntimeException("Original Batch details not found"));
 
             BigDecimal originalBuyPrice = batch.getBuyPrice();
@@ -129,12 +150,15 @@ public class SalesReturnServiceImpl implements SalesReturnService {
             // --- FIX C: Price Logic ---
             // Assuming InvoiceItem.unitPrice is truly the "Price per unit"
             // If discount was applied to the whole line, calculate actual paid per unit:
-            // BigDecimal actualPaidPerUnit = originalSoldItem.getTotalAmount().divide(BigDecimal.valueOf(originalSoldItem.getQuantity()), 2, RoundingMode.HALF_UP);
+            // BigDecimal actualPaidPerUnit =
+            // originalSoldItem.getTotalAmount().divide(BigDecimal.valueOf(originalSoldItem.getQuantity()),
+            // 2, RoundingMode.HALF_UP);
 
             // If unitPrice is just the price, use it directly:
             BigDecimal actualPaidPerUnit = originalSoldItem.getUnitPrice();
 
-            BigDecimal lineRefundTotal = actualPaidPerUnit.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal lineRefundTotal = actualPaidPerUnit
+                    .multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             totalRefundAmount = totalRefundAmount.add(lineRefundTotal);
 
             SalesReturnItem returnItem = SalesReturnItem.builder()
@@ -155,22 +179,19 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                     .quantity(itemReq.getQuantity())
                     .transactionType(MovementType.IN)
                     .referenceType(ReferenceType.SALES_RETURN)
+                    .referenceId(salesReturn.getId())
                     .remarks("Returned from Invoice " + invoice.getInvoiceNumber())
                     .batchNumber(batchNum)
 
                     // CORRECT: Use the Batch Cost so Inventory Value is restored accurately
                     .unitPrice(originalBuyPrice)
                     .build();
-            stockUpdates.add(stockDto);
+
+            stockService.updateStock(stockDto);
         }
 
         salesReturn.setTotalAmount(totalRefundAmount);
         SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
-
-        for (StockUpdateDto stockDto : stockUpdates) {
-            stockDto.setReferenceId(savedReturn.getId());
-            stockService.updateStock(stockDto);
-        }
 
         paymentService.createCreditNote(
                 invoice.getCustomerId(),
@@ -183,7 +204,6 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .status(Status.SUCCESS)
                 .build();
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -205,26 +225,24 @@ public class SalesReturnServiceImpl implements SalesReturnService {
         return data.map(salesReturn -> mapToDto(salesReturn, customerMap));
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public SalesReturnDto getSalesReturnById(Long id) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         SalesReturn salesReturn = salesReturnRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new CommonException("Sales Return not found with ID: " + id, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CommonException("Sales Return not found with ID: " + id,
+                        HttpStatus.NOT_FOUND));
 
         Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(
-                List.of(salesReturn.getInvoice().getCustomerId())
-        );
+                List.of(salesReturn.getInvoice().getCustomerId()));
 
         return mapToDto(salesReturn, customerMap);
     }
 
-
-
     private SalesReturnDto mapToDto(SalesReturn entity, Map<Long, UserMiniDto> customerMap) {
 
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
 
         List<SalesReturnItemDto> items = entity.getItems()
                 .stream()
@@ -235,8 +253,8 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .reason(item.getReason())
-                        .build()
-                ).toList();
+                        .build())
+                .toList();
 
         UserMiniDto contactMini = customerMap != null
                 ? customerMap.getOrDefault(entity.getInvoice().getCustomerId(), new UserMiniDto())
@@ -253,9 +271,9 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .totalAmount(entity.getTotalAmount())
                 .items(items)
                 .creditNotePaymentId(
-                        entity.getCreditNotePayment() != null ?
-                                entity.getCreditNotePayment().getId() : null
-                )
+                        entity.getCreditNotePayment() != null
+                                ? entity.getCreditNotePayment().getId()
+                                : null)
                 .build();
     }
 
