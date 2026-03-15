@@ -6,6 +6,7 @@ import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
 import com.ezh.Inventory.sales.payment.service.PaymentService;
 import com.ezh.Inventory.sales.returns.dto.ReturnItemRequest;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnDto;
+import com.ezh.Inventory.sales.returns.dto.SalesReturnFilter;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnItemDto;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnRequestDto;
 import com.ezh.Inventory.sales.returns.entity.SalesReturn;
@@ -207,12 +208,23 @@ public class SalesReturnServiceImpl implements SalesReturnService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<SalesReturnDto> getSalesReturns(Integer page, Integer size) throws CommonException {
+    public Page<SalesReturnDto> getSalesReturns(SalesReturnFilter filter, Integer page, Integer size) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<SalesReturn> data = salesReturnRepository.findByTenantId(tenantId, pageable);
+        Page<SalesReturn> data = salesReturnRepository.getAllSalesReturn(
+                tenantId,
+                filter.getId(),
+                filter.getCustomerId(),
+                filter.getInvoiceId(),
+                filter.getWarehouseId(),
+                filter.getStatuses(),
+                filter.getSearchQuery(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
+                pageable
+        );
 
         Set<Long> customerIds = data.stream()
                 .map(sr -> sr.getInvoice().getCustomerId())

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Sales Return / Credit Note</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 10px;
+            margin: 0;
+            color: #1a1a1a;
+            background: #e8e8e8;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 820px;
+            margin: 0 auto;
+            background: #ffffff;
+        }
+
+        h1, h2, h3, p { margin: 0; padding: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        .text-right  { text-align: right; }
+        .text-center { text-align: center; }
+        .fw-600 { font-weight: 600; }
+        .fw-700 { font-weight: 700; }
+        .text-muted  { color: #666666; }
+
+        /* ── TITLE BAR ── */
+        .title-bar {
+            display: table;
+            width: 100%;
+            border-bottom: 2px solid #1a1a1a;
+        }
+        .title-bar-left {
+            display: table-cell;
+            padding: 7px 14px;
+            vertical-align: middle;
+        }
+        .title-bar-right {
+            display: table-cell;
+            padding: 7px 14px;
+            vertical-align: middle;
+            text-align: right;
+        }
+        .inv-label {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #1a1a1a;
+            text-transform: uppercase;
+        }
+
+        /* ── HEADER: Company LEFT | Invoice Meta RIGHT ── */
+        .header-section {
+            display: table;
+            width: 100%;
+            border-bottom: 1px solid #c0c0c0;
+        }
+        .header-left {
+            display: table-cell;
+            width: 50%;
+            padding: 0px 16px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+        }
+        .header-right {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+        }
+
+        /* Company info */
+        .company-logo-row {
+            margin-top: 4px;
+            display: table;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        .logo-cell {
+            display: table-cell;
+            width: 46px;
+            vertical-align: middle;
+            padding-right: 10px;
+        }
+        .logo-box {
+            width: 42px; height: 42px;
+            background: #eef3f9;
+            border: 1px solid #b8cfe4;
+            border-radius: 4px;
+            text-align: center;
+            line-height: 42px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #2e6da4;
+        }
+        .company-info-cell {
+            display: table-cell;
+            vertical-align: middle;
+        }
+        .company-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+        .company-detail {
+            font-size: 8.5px;
+            color: #555555;
+            line-height: 1.75;
+        }
+        .lbl-inline { color: #2e5a88; font-weight: 600; }
+
+        /* Invoice meta — 3 columns: Invoice No | Invoice Date | Due Date */
+        .meta-top {
+            display: table;
+            width: 100%;
+            border-bottom: 1px solid #c0c0c0;
+        }
+        .meta-top-col {
+            display: table-cell;
+            padding: 10px 12px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+            width: 33.33%;
+        }
+        .meta-top-col:last-child { border-right: none; }
+        .meta-col-label {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #888888;
+            margin-bottom: 3px;
+        }
+        .meta-col-value {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        /* Second meta row: Sales Order | Payment | Delivery */
+        .meta-bottom {
+            display: table;
+            width: 100%;
+        }
+        .meta-bottom-col {
+            display: table-cell;
+            padding: 8px 12px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+            width: 33.33%;
+        }
+        .meta-bottom-col:last-child { border-right: none; }
+        .meta-status-unpaid { color: #cc0000; font-weight: 700; font-size: 10px; }
+        .meta-status-paid   { color: #1a7a1a; font-weight: 700; font-size: 10px; }
+
+        /* ── BILL TO / SHIP TO ── */
+        .address-section {
+            display: table;
+            width: 100%;
+            border-bottom: 1px solid #c0c0c0;
+            border-top: 1px solid #c0c0c0;
+        }
+        .address-cell {
+            display: table-cell;
+            width: 50%;
+            padding: 10px 16px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+        }
+        .address-cell:last-child { border-right: none; }
+        .address-label {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #888888;
+            margin-bottom: 4px;
+        }
+        .address-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 3px;
+        }
+
+        /* ── ITEMS TABLE ── */
+        .items-section { border-bottom: 1px solid #c0c0c0; }
+
+        .item-table thead tr th {
+            background: #3a3a3a;
+            color: #ffffff;
+            font-size: 8.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 8px;
+            border-right: 1px solid #555555;
+            border-bottom: 1px solid #555555;
+        }
+        .item-table thead tr th:last-child { border-right: none; }
+
+        .item-table tbody tr td {
+            padding: 8px 8px;
+            border: 1px solid #e0e0e0;
+            font-size: 9.5px;
+            vertical-align: middle;
+            color: #1a1a1a;
+        }
+        .item-table tbody tr:nth-child(even) td { background: #fafafa; }
+        .item-name { font-weight: 600; font-size: 10px; }
+        .item-meta { font-size: 7.5px; color: #888888; margin-top: 2px; }
+
+        /* CGST/SGST rows */
+        .gst-row td {
+            background: #f5f5f5 !important;
+            color: #444444;
+            font-size: 9px;
+            border-color: #e0e0e0 !important;
+            padding: 6px 8px;
+        }
+        .gst-label {
+            text-align: right;
+            font-weight: 700;
+            color: #1a1a1a;
+            font-size: 9.5px;
+        }
+
+        /* Total row */
+        .total-row td {
+            background: #3a3a3a !important;
+            color: #ffffff !important;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 8px 8px;
+            border-color: #3a3a3a !important;
+        }
+
+        /* ── HSN SUMMARY ── */
+        .hsn-section {
+            border-bottom: 1px solid #c0c0c0;
+        }
+        .hsn-table thead tr th {
+            background: #f0f0f0;
+            color: #333333;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 6px 8px;
+            border: 1px solid #c0c0c0;
+            text-align: center;
+        }
+        .hsn-table thead tr th.text-left { text-align: left; }
+        .hsn-group-header {
+            background: #e8e8e8 !important;
+            font-size: 8px;
+            font-weight: 700;
+            text-align: center !important;
+            color: #444444;
+            border: 1px solid #c0c0c0;
+            padding: 4px 8px;
+        }
+        .hsn-table tbody tr td {
+            padding: 6px 8px;
+            border: 1px solid #e0e0e0;
+            font-size: 9px;
+            color: #1a1a1a;
+            text-align: center;
+        }
+        .hsn-table tbody tr td.text-left { text-align: left; }
+        .hsn-table tbody tr td.text-right { text-align: right; }
+        .hsn-table tfoot tr td {
+            padding: 6px 8px;
+            border: 1px solid #c0c0c0;
+            font-weight: 700;
+            font-size: 9px;
+            background: #f0f0f0;
+            color: #1a1a1a;
+            text-align: center;
+        }
+        .hsn-table tfoot tr td.text-left { text-align: left; }
+        .hsn-table tfoot tr td.text-right { text-align: right; }
+
+        /* ── AMOUNT IN WORDS ── */
+        .words-section {
+            padding: 8px 16px;
+            border-bottom: 1px solid #c0c0c0;
+            background: #fafafa;
+        }
+        .words-label {
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+        .words-value {
+            font-size: 10px;
+            color: #1a1a1a;
+            text-transform: capitalize;
+        }
+
+        /* ── BANK + SUMMARY ── */
+        .bottom-section {
+            display: table;
+            width: 100%;
+            border-bottom: 1px solid #c0c0c0;
+        }
+        .bottom-left {
+            display: table-cell;
+            width: 50%;
+            padding: 12px 16px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+        }
+        .bottom-right {
+            display: table-cell;
+            width: 50%;
+            padding: 12px 16px;
+            vertical-align: top;
+        }
+        .block-heading {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #1a1a1a;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+            border-bottom: 1.5px solid #1a1a1a;
+        }
+        .bank-table td {
+            border: none;
+            padding: 2px 0;
+            font-size: 9px;
+        }
+        .bank-table td:first-child {
+            color: #666666;
+            width: 36%;
+            font-weight: 600;
+        }
+        .bank-table td:last-child {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        /* Summary right side */
+        .summary-table { width: 100%; }
+        .summary-table td {
+            padding: 3px 0;
+            border: none;
+            font-size: 9.5px;
+        }
+        .summary-table td:first-child { color: #555555; }
+        .summary-table td:last-child {
+            text-align: right;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .summary-divider {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 5px 0;
+        }
+
+        .grand-total-box {
+            display: table;
+            width: 100%;
+            background: #3a3a3a;
+            margin-top: 8px;
+        }
+        .grand-total-label-cell {
+            display: table-cell;
+            padding: 8px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            vertical-align: middle;
+        }
+        .grand-total-value-cell {
+            display: table-cell;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        .paid-balance-table { width: 100%; margin-top: 4px; }
+        .paid-balance-table td {
+            padding: 4px 10px;
+            font-size: 9.5px;
+            border: 1px solid #e0e0e0;
+        }
+        .paid-balance-table td:last-child { text-align: right; font-weight: 600; }
+        .balance-row-final td {
+            background: #f5f5f5;
+            font-weight: 700 !important;
+            font-size: 10px !important;
+            border-top: 1.5px solid #1a1a1a !important;
+        }
+
+        /* ── FOOTER ── */
+        .footer-section {
+            display: table;
+            width: 100%;
+        }
+        .footer-left {
+            display: table-cell;
+            width: 60%;
+            padding: 12px 16px;
+            vertical-align: top;
+            border-right: 1px solid #c0c0c0;
+        }
+        .footer-right {
+            display: table-cell;
+            width: 40%;
+            padding: 12px 16px;
+            vertical-align: bottom;
+            text-align: center;
+        }
+        .terms-heading {
+            font-size: 9px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+        }
+        .terms-text {
+            font-size: 8.5px;
+            color: #555555;
+            line-height: 1.9;
+        }
+        .sig-line {
+            border-bottom: 1px solid #1a1a1a;
+            width: 70%;
+            margin: 0 auto 5px auto;
+            padding-top: 44px;
+        }
+        .sig-label { font-size: 9px; font-weight: 700; color: #1a1a1a; }
+        .sig-for   { font-size: 8.5px; color: #888888; margin-top: 1px; }
+
+        .bottom-stripe {
+            background: #3a3a3a;
+            text-align: center;
+            padding: 5px;
+            font-size: 8px;
+            color: #cccccc;
+            letter-spacing: 0.3px;
+        }
+
+        /* ── REMARKS ── */
+        .remarks-box {
+            margin-top: 8px;
+            padding: 5px 8px;
+            background: #fafafa;
+            border-left: 2px solid #888888;
+            font-size: 8.5px;
+            color: #555555;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ══ TITLE BAR ══ -->
+    <div class="title-bar">
+        <div class="title-bar-left">
+            <span class="inv-label">Sales Return / Credit Note</span>
+        </div>
+    </div>
+
+    <!-- ══ HEADER ══ -->
+    <div class="header-section">
+
+        <!-- LEFT: Company Details -->
+        <div class="header-left">
+            <div class="company-logo-row">
+                <div class="logo-cell">
+                    <div class="logo-box">
+                        <span th:text="${tenant.tenantName != null ? (tenant.tenantName.length() >= 2 ? #strings.substring(tenant.tenantName, 0, 2).toUpperCase() : tenant.tenantName.toUpperCase()) : 'CP'}">CP</span>
+                    </div>
+                </div>
+                <div class="company-info-cell">
+                    <div class="company-name"
+                         th:text="${tenant.tenantDetails != null ? (tenant.tenantDetails.legalName != null ? tenant.tenantDetails.legalName : tenant.tenantName) : tenant.tenantName}">
+                        Company Name
+                    </div>
+                    <div class="company-detail"
+                         th:if="${tenant.tenantAddress != null and !tenant.tenantAddress.isEmpty()}">
+                        <span th:text="${tenant.tenantAddress[0].addressLine1}"></span><br/>
+                        <span th:text="${tenant.tenantAddress[0].city + ', ' + tenant.tenantAddress[0].state + ' - ' + tenant.tenantAddress[0].pinCode}"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="company-detail">
+                <span th:if="${tenant.tenantDetails != null and tenant.tenantDetails.gstNumber != null}">
+                    <span class="lbl-inline">GSTIN:</span>
+                    <span th:text="${tenant.tenantDetails.gstNumber}"></span>&#160;&#160;
+                </span>
+                <span class="lbl-inline">Phone:</span> <span th:text="${tenant.phone}"></span>
+            </div>
+            <div class="company-detail">
+                <span class="lbl-inline">Email:</span> <span th:text="${tenant.email}"></span>
+                <span th:if="${tenant.tenantDetails != null and tenant.tenantDetails.website != null}">
+                    &#160;&#160;<span class="lbl-inline">Web:</span>
+                    <span th:text="${tenant.tenantDetails.website}"></span>
+                </span>
+            </div>
+        </div>
+
+        <!-- RIGHT: Meta — 3 columns top row, 3 columns bottom row -->
+        <div class="header-right">
+            <!-- Top row: Return No | Return Date | Original Invoice -->
+            <div class="meta-top">
+                <div class="meta-top-col">
+                    <div class="meta-col-label">Return No.</div>
+                    <div class="meta-col-value" th:text="${salesReturn.returnNumber}">SR-001</div>
+                </div>
+                <div class="meta-top-col">
+                    <div class="meta-col-label">Return Date</div>
+                    <div class="meta-col-value" th:text="${#dates.format(salesReturn.returnDate, 'dd/MM/yyyy')}">15/01/2025</div>
+                </div>
+                <div class="meta-top-col">
+                    <div class="meta-col-label">Original Inv.</div>
+                    <div class="meta-col-value" th:text="${invoice.invoiceNumber}">INV-001</div>
+                </div>
+            </div>
+            <!-- Bottom row: Reason | Status | Refund Status -->
+            <div class="meta-bottom">
+                <div class="meta-bottom-col">
+                    <div class="meta-col-label">Return Reason</div>
+                    <div class="meta-col-value" style="font-size:9.5px;" th:text="${displayItems != null and !displayItems.isEmpty() ? displayItems[0].get('reason') : 'Returned'}">Returned</div>
+                </div>
+                <div class="meta-bottom-col">
+                    <div class="meta-col-label">Status</div>
+                    <div class="meta-status-paid">RETURNED</div>
+                </div>
+                <div class="meta-bottom-col">
+                    <div class="meta-col-label">Refund Status</div>
+                    <div class="meta-status-unpaid" th:if="${salesReturn.creditNotePayment == null}">PENDING</div>
+                    <div class="meta-status-paid" th:if="${salesReturn.creditNotePayment != null}">REFUNDED</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══ BILL TO / SHIP TO ══ -->
+    <div class="address-section">
+        <div class="address-cell">
+            <div class="address-label">Bill To</div>
+            <div class="address-name" th:text="${customer.name}">Customer Name</div>
+            <div class="company-detail">
+                <span class="lbl-inline">Mobile:</span> <span th:text="${customer.phone}"></span>
+            </div>
+            <div class="company-detail">
+                <span class="lbl-inline">Email:</span> <span th:text="${customer.email}"></span>
+            </div>
+        </div>
+        <div class="address-cell">
+            <div class="address-label">Original Invoice Address</div>
+            <div class="address-name" th:text="${customer.name}">Customer Name</div>
+            <div class="company-detail">
+                <span class="lbl-inline">Mobile:</span> <span th:text="${customer.phone}"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ITEMS TABLE ══ -->
+    <div class="items-section">
+        <table class="item-table">
+            <thead>
+            <tr>
+                <th class="text-center" style="width:4%">S.No.</th>
+                <th style="width:28%">Items</th>
+                <th class="text-center" style="width:12%">Return Reason</th>
+                <th class="text-center" style="width:8%">RTN Qty.</th>
+                <th class="text-right" style="width:11%">Rate</th>
+                <th class="text-right" style="width:11%">Tax Rate</th>
+                <th class="text-right" style="width:11%">Tax Amount</th>
+                <th class="text-right" style="width:15%">Return Amount</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item, iter : ${displayItems}">
+                <td class="text-center text-muted" th:text="${iter.index + 1}">1</td>
+                <td>
+                    <div class="item-name" th:text="${item.get('itemName')}">Product Name</div>
+                    <div class="item-meta">
+                        <span th:if="${item.get('sku') != null}" th:text="'SKU: ' + ${item.get('sku')}"></span>
+                        <span th:if="${item.get('batchNumber') != null}" th:text="' | Batch: ' + ${item.get('batchNumber')}"></span>
+                    </div>
+                </td>
+                <td class="text-center text-muted" th:text="${item.get('reason')}">—</td>
+                <td class="text-center fw-700" th:text="${item.get('quantity')} + ' PCS'">1 PCS</td>
+                <td class="text-right" th:text="${#numbers.formatDecimal(item.get('unitPrice'), 1, 'COMMA', 2, 'POINT')}">0.00</td>
+                <td class="text-right">
+                    <span th:text="${item.get('taxRate') != null ? item.get('taxRate') + '%' : '—'}"></span>
+                </td>
+                <td class="text-right">
+                    <span th:if="${item.get('taxAmount') != null and item.get('taxAmount').compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                          th:text="${#numbers.formatDecimal(item.get('taxAmount'), 1, 'COMMA', 2, 'POINT')}"></span>
+                    <span th:unless="${item.get('taxAmount') != null and item.get('taxAmount').compareTo(T(java.math.BigDecimal).ZERO) > 0}" class="text-muted">—</span>
+                </td>
+                <td class="text-right fw-700" th:text="${#numbers.formatDecimal(item.get('lineTotal'), 1, 'COMMA', 2, 'POINT')}">0.00</td>
+            </tr>
+
+            <!-- TOTAL row -->
+            <tr class="total-row">
+                <td colspan="3" class="text-right" style="letter-spacing:1px;">TOTAL</td>
+                <td class="text-center" th:text="${totalQuantity} + ' PCS'">— PCS</td>
+                <td colspan="3"></td>
+                <td class="text-right" th:text="'Rs. ' + ${#numbers.formatDecimal(grandTotal, 1, 'COMMA', 2, 'POINT')}">Rs. 0.00</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ══ AMOUNT IN WORDS ══ -->
+    <div class="words-section">
+        <span class="words-label">Refunding Amount (in words): </span>
+        <span class="words-value" th:text="${amountInWords != null ? amountInWords : 'Refer to Return Value'}"></span>
+    </div>
+
+    <!-- ══ BANK + SUMMARY ══ -->
+    <div class="bottom-section">
+        <div class="bottom-left">
+            <div class="block-heading">Refunding Details</div>
+            <table class="bank-table">
+                <tr>
+                    <td>Note:</td>
+                    <td>This is a credit note against the original invoice. The balance will be settled either via equivalent product replacement or refund subject to company protocol.</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 10px;" th:if="${tenant.tenantDetails != null and tenant.tenantDetails.supportEmail != null}">
+                <div class="block-heading">Support</div>
+                <div style="font-size: 8.5px; color: #555555; margin-top: 3px;">
+                    <span style="font-weight:600;">Email:</span> <span th:text="${tenant.tenantDetails.supportEmail}"></span>
+                </div>
+                <div style="font-size: 8.5px; color: #555555;" th:if="${tenant.tenantDetails.contactPhone != null}">
+                    <span style="font-weight:600;">Phone:</span> <span th:text="${tenant.tenantDetails.contactPhone}"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-right">
+            <div class="block-heading">Credit Note Summary</div>
+            <table class="summary-table">
+                <tr>
+                    <td>Return Value (Gross Total)</td>
+                    <td th:text="'Rs. ' + ${#numbers.formatDecimal(grandTotal, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+                </tr>
+                <tr th:if="${itemTotalTax != null and itemTotalTax.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                    <td style="color:#555555;">Returned Tax Included</td>
+                    <td th:text="'+ Rs. ' + ${#numbers.formatDecimal(itemTotalTax, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+                </tr>
+            </table>
+
+            <!-- Grand Total dark bar -->
+            <div class="grand-total-box">
+                <span class="grand-total-label-cell">CREDIT NOTE TOTAL</span>
+                <span class="grand-total-value-cell"
+                      th:text="'Rs. ' + ${#numbers.formatDecimal(grandTotal, 1, 'COMMA', 2, 'POINT')}">Rs. 0.00</span>
+            </div>
+
+            <!-- Refund Allocation Status -->
+            <table class="paid-balance-table">
+                <tr class="balance-row-final">
+                    <td>Status Indicator</td>
+                    <td th:text="${salesReturn.creditNotePayment != null ? 'REFUNDED' : 'PENDING'}">PENDING</td>
+                </tr>
+            </table>
+
+        </div>
+    </div>
+
+    <!-- ══ FOOTER ══ -->
+    <div class="footer-section">
+        <div class="footer-left">
+            <div class="terms-heading">Return &amp; Credit Conditions</div>
+            <div class="terms-text">
+                1. Subject to quality check and testing.<br/>
+                2. If the items are found used or tampered with, the return protocol might be retracted.<br/>
+                3. Issued against corresponding Invoice only.<br/>
+                4. Subject to Bangalore jurisdiction only.
+            </div>
+        </div>
+        <div class="footer-right">
+            <div class="sig-line"></div>
+            <div class="sig-label">Authorised Signatory</div>
+            <div class="sig-for"
+                 th:text="'For ' + ${tenant.tenantDetails != null ? (tenant.tenantDetails.legalName != null ? tenant.tenantDetails.legalName : tenant.tenantName) : tenant.tenantName}">For Company</div>
+        </div>
+    </div>
+
+    <div class="bottom-stripe">
+        This is a computer-generated return note and does not require a physical signature.
+    </div>
+
+</div>
+</body>
+</html>
