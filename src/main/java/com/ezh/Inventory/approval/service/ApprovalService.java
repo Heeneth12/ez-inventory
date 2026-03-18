@@ -77,6 +77,7 @@ public class ApprovalService {
             case HIGH_VALUE_INVOICE:
             case PO_APPROVAL:
             case STOCK_ADJUSTMENT:
+            case SALES_RETURN:
                 if (context.getAmount() != null && config.getThresholdAmount() != null) {
                     if (context.getAmount().compareTo(config.getThresholdAmount()) > 0) {
                         approvalNeeded = true;
