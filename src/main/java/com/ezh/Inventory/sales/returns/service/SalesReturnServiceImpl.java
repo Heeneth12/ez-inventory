@@ -1,5 +1,10 @@
 package com.ezh.Inventory.sales.returns.service;
 
+import com.ezh.Inventory.approval.dto.ApprovalCheckContext;
+import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
+import com.ezh.Inventory.approval.entity.ApprovalStatus;
+import com.ezh.Inventory.approval.entity.ApprovalType;
+import com.ezh.Inventory.approval.service.ApprovalService;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceItem;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
@@ -11,6 +16,7 @@ import com.ezh.Inventory.sales.returns.dto.SalesReturnItemDto;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnRequestDto;
 import com.ezh.Inventory.sales.returns.entity.SalesReturn;
 import com.ezh.Inventory.sales.returns.entity.SalesReturnItem;
+import com.ezh.Inventory.sales.returns.entity.SalesReturnStatus;
 import com.ezh.Inventory.sales.returns.repository.SalesReturnRepository;
 import com.ezh.Inventory.stock.dto.StockUpdateDto;
 import com.ezh.Inventory.stock.entity.MovementType;
@@ -25,9 +31,11 @@ import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.Status;
 import com.ezh.Inventory.utils.common.client.AuthServiceClient;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
+import com.ezh.Inventory.utils.common.events.ApprovalDecisionEvent;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +64,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
     private final PaymentService paymentService;
     private final StockBatchRepository stockBatchRepository;
     private final AuthServiceClient authServiceClient;
+    private final ApprovalService approvalService;
 
     @Override
     @Transactional
@@ -71,49 +80,20 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .returnNumber(DocumentNumberUtil.generate(DocPrefix.SR))
                 .invoice(invoice)
                 .returnDate(new Date())
+                .totalAmount(BigDecimal.ZERO)
+                .status(SalesReturnStatus.PENDING_APPROVAL)
                 .items(new ArrayList<>())
                 .build();
-
-        // saving for to get ID for stock movement
-        salesReturnRepository.save(salesReturn);
 
         BigDecimal totalRefundAmount = BigDecimal.ZERO;
 
         for (ReturnItemRequest itemReq : request.getItems()) {
+            InvoiceItem originalSoldItem = resolveInvoiceItem(invoice, itemReq);
 
-            List<InvoiceItem> matchingItems = invoice.getItems().stream()
-                    .filter(i -> i.getItemId().equals(itemReq.getItemId()))
-                    .toList();
-
-            if (matchingItems.isEmpty()) {
-                throw new CommonException("Item " + itemReq.getItemId() + " not found in invoice",
-                        HttpStatus.NOT_FOUND);
-            }
-
-            InvoiceItem originalSoldItem;
-            if (itemReq.getBatchNumber() != null && !itemReq.getBatchNumber().isBlank()) {
-                originalSoldItem = matchingItems.stream()
-                        .filter(i -> itemReq.getBatchNumber().equals(i.getBatchNumber()))
-                        .findFirst()
-                        .orElseThrow(() -> new CommonException(
-                                "Batch " + itemReq.getBatchNumber()
-                                        + " not found for item in invoice",
-                                HttpStatus.NOT_FOUND));
-            } else if (matchingItems.size() == 1) {
-                originalSoldItem = matchingItems.getFirst();
-            } else {
-                throw new CommonException(
-                        "Multiple batches found for item. Please provide batchNumber.",
-                        HttpStatus.BAD_REQUEST);
-            }
-
-            // 1. Validate Return Quantity is sensible
             if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
-                throw new CommonException("Return quantity must be greater than zero.",
-                        HttpStatus.BAD_REQUEST);
+                throw new CommonException("Return quantity must be greater than zero.", HttpStatus.BAD_REQUEST);
             }
 
-            // 2. Validate Against Previous Returns
             int alreadyReturned = originalSoldItem.getReturnedQuantity() != null
                     ? originalSoldItem.getReturnedQuantity()
                     : 0;
@@ -128,76 +108,47 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                         HttpStatus.BAD_REQUEST);
             }
 
-            // 3. Update the InvoiceItem tracking column so it can't be returned again next
-            // time
-            originalSoldItem.setReturnedQuantity(alreadyReturned + itemReq.getQuantity());
-            // invoiceItemRepository.save(originalSoldItem); // If not cascading
-
-            // --- BATCH LOGIC ---
-            String batchNum = originalSoldItem.getBatchNumber();
-            if (batchNum == null || batchNum.isBlank()) {
-                throw new CommonException(
-                        "Batch number is missing in invoice item. Please update invoice data before return.",
-                        HttpStatus.BAD_REQUEST);
-            }
-
-            StockBatch batch = stockBatchRepository
-                    .findByItemIdAndBatchNumberAndWarehouseId(itemReq.getItemId(), batchNum,
-                            invoice.getWarehouseId())
-                    .orElseThrow(() -> new RuntimeException("Original Batch details not found"));
-
-            BigDecimal originalBuyPrice = batch.getBuyPrice();
-
-            // --- FIX C: Price Logic ---
-            // Assuming InvoiceItem.unitPrice is truly the "Price per unit"
-            // If discount was applied to the whole line, calculate actual paid per unit:
-            // BigDecimal actualPaidPerUnit =
-            // originalSoldItem.getTotalAmount().divide(BigDecimal.valueOf(originalSoldItem.getQuantity()),
-            // 2, RoundingMode.HALF_UP);
-
-            // If unitPrice is just the price, use it directly:
             BigDecimal actualPaidPerUnit = originalSoldItem.getUnitPrice();
-
-            BigDecimal lineRefundTotal = actualPaidPerUnit
-                    .multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal lineRefundTotal = actualPaidPerUnit.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             totalRefundAmount = totalRefundAmount.add(lineRefundTotal);
 
             SalesReturnItem returnItem = SalesReturnItem.builder()
                     .salesReturn(salesReturn)
                     .itemId(itemReq.getItemId())
-                    .batchNumber(batchNum)
+                    .batchNumber(originalSoldItem.getBatchNumber())
                     .quantity(itemReq.getQuantity())
                     .unitPrice(actualPaidPerUnit)
                     .reason(request.getReason())
                     .build();
 
             salesReturn.getItems().add(returnItem);
-
-            // --- FIX A: Pass Correct Price for Stock ---
-            StockUpdateDto stockDto = StockUpdateDto.builder()
-                    .itemId(originalSoldItem.getItemId())
-                    .warehouseId(invoice.getWarehouseId())
-                    .quantity(itemReq.getQuantity())
-                    .transactionType(MovementType.IN)
-                    .referenceType(ReferenceType.SALES_RETURN)
-                    .referenceId(salesReturn.getId())
-                    .remarks("Returned from Invoice " + invoice.getInvoiceNumber())
-                    .batchNumber(batchNum)
-
-                    // CORRECT: Use the Batch Cost so Inventory Value is restored accurately
-                    .unitPrice(originalBuyPrice)
-                    .build();
-
-            stockService.updateStock(stockDto);
         }
 
         salesReturn.setTotalAmount(totalRefundAmount);
+
         SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
 
-        paymentService.createCreditNote(
-                invoice.getCustomerId(),
-                totalRefundAmount,
-                savedReturn.getReturnNumber());
+        ApprovalCheckContext approvalCheckContext = ApprovalCheckContext.builder()
+                .type(ApprovalType.SALES_RETURN)
+                .amount(totalRefundAmount)
+                .referenceId(savedReturn.getId())
+                .referenceCode(savedReturn.getReturnNumber())
+                .build();
+
+        CommonResponse<?> approvalResponse = approvalService.checkAndInitiateApproval(approvalCheckContext);
+
+        if (approvalResponse.getData() == ApprovalResultStatus.APPROVAL_REQUIRED) {
+            savedReturn.setStatus(SalesReturnStatus.PENDING_APPROVAL);
+            salesReturnRepository.save(savedReturn);
+
+            return CommonResponse.builder()
+                    .id(savedReturn.getId().toString())
+                    .message("Sales return submitted for approval")
+                    .status(Status.SUCCESS)
+                    .build();
+        }
+
+        applyApprovedSalesReturn(savedReturn);
 
         return CommonResponse.builder()
                 .id(savedReturn.getId().toString())
@@ -251,6 +202,107 @@ public class SalesReturnServiceImpl implements SalesReturnService {
         return mapToDto(salesReturn, customerMap);
     }
 
+    @EventListener
+    @Transactional
+    public void onApprovalDecision(ApprovalDecisionEvent event) {
+        if (event.getType() != ApprovalType.SALES_RETURN) {
+            return;
+        }
+
+        SalesReturn salesReturn = salesReturnRepository.findById(event.getReferenceId())
+                .orElseThrow(() -> new CommonException("Linked Sales Return not found", HttpStatus.NOT_FOUND));
+
+        if (event.getStatus() == ApprovalStatus.APPROVED) {
+            applyApprovedSalesReturn(salesReturn);
+        } else {
+            salesReturn.setStatus(SalesReturnStatus.REJECTED);
+            salesReturnRepository.save(salesReturn);
+        }
+    }
+
+    private void applyApprovedSalesReturn(SalesReturn salesReturn) {
+        if (salesReturn.getStatus() == SalesReturnStatus.APPROVED) {
+            return;
+        }
+
+        Invoice invoice = salesReturn.getInvoice();
+
+        for (SalesReturnItem returnItem : salesReturn.getItems()) {
+            InvoiceItem originalSoldItem = resolveInvoiceItem(invoice,
+                    ReturnItemRequest.builder()
+                            .itemId(returnItem.getItemId())
+                            .batchNumber(returnItem.getBatchNumber())
+                            .quantity(returnItem.getQuantity())
+                            .build());
+
+            int alreadyReturned = originalSoldItem.getReturnedQuantity() != null
+                    ? originalSoldItem.getReturnedQuantity()
+                    : 0;
+            int maximumAllowedToReturn = originalSoldItem.getQuantity() - alreadyReturned;
+            if (returnItem.getQuantity() > maximumAllowedToReturn) {
+                throw new CommonException("Cannot approve sales return for item " + originalSoldItem.getItemName() +
+                        " because allowed return quantity is now " + maximumAllowedToReturn,
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            originalSoldItem.setReturnedQuantity(alreadyReturned + returnItem.getQuantity());
+
+            String batchNum = returnItem.getBatchNumber();
+            StockBatch batch = stockBatchRepository
+                    .findByItemIdAndBatchNumberAndWarehouseId(returnItem.getItemId(), batchNum, invoice.getWarehouseId())
+                    .orElseThrow(() -> new RuntimeException("Original Batch details not found"));
+
+            StockUpdateDto stockDto = StockUpdateDto.builder()
+                    .itemId(returnItem.getItemId())
+                    .warehouseId(invoice.getWarehouseId())
+                    .quantity(returnItem.getQuantity())
+                    .transactionType(MovementType.IN)
+                    .referenceType(ReferenceType.SALES_RETURN)
+                    .referenceId(salesReturn.getId())
+                    .remarks("Returned from Invoice " + invoice.getInvoiceNumber())
+                    .batchNumber(batchNum)
+                    .unitPrice(batch.getBuyPrice())
+                    .build();
+
+            stockService.updateStock(stockDto);
+        }
+
+        paymentService.createCreditNote(
+                invoice.getCustomerId(),
+                salesReturn.getTotalAmount(),
+                salesReturn.getReturnNumber());
+
+        salesReturn.setStatus(SalesReturnStatus.APPROVED);
+        salesReturnRepository.save(salesReturn);
+    }
+
+    private InvoiceItem resolveInvoiceItem(Invoice invoice, ReturnItemRequest itemReq) {
+        List<InvoiceItem> matchingItems = invoice.getItems().stream()
+                .filter(i -> i.getItemId().equals(itemReq.getItemId()))
+                .toList();
+
+        if (matchingItems.isEmpty()) {
+            throw new CommonException("Item " + itemReq.getItemId() + " not found in invoice", HttpStatus.NOT_FOUND);
+        }
+
+        if (itemReq.getBatchNumber() != null && !itemReq.getBatchNumber().isBlank()) {
+            return matchingItems.stream()
+                    .filter(i -> itemReq.getBatchNumber().equals(i.getBatchNumber()))
+                    .findFirst()
+                    .orElseThrow(() -> new CommonException(
+                            "Batch " + itemReq.getBatchNumber() + " not found for item in invoice",
+                            HttpStatus.NOT_FOUND));
+        }
+
+        if (matchingItems.size() == 1) {
+            return matchingItems.getFirst();
+        }
+
+        throw new CommonException(
+                "Multiple batches found for item. Please provide batchNumber.",
+                HttpStatus.BAD_REQUEST);
+    }
+
     private SalesReturnDto mapToDto(SalesReturn entity, Map<Long, UserMiniDto> customerMap) {
 
         if (entity == null)
@@ -281,6 +333,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 .contactMini(contactMini)
                 .returnDate(entity.getReturnDate())
                 .totalAmount(entity.getTotalAmount())
+                .status(entity.getStatus())
                 .items(items)
                 .creditNotePaymentId(
                         entity.getCreditNotePayment() != null
@@ -288,5 +341,4 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                                 : null)
                 .build();
     }
-
 }

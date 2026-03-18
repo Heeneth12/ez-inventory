@@ -1,6 +1,7 @@
 package com.ezh.Inventory.sales.returns.dto;
 
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
+import com.ezh.Inventory.sales.returns.entity.SalesReturnStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -21,6 +22,7 @@ public class SalesReturnDto {
     private UserMiniDto contactMini;
     private Date returnDate;
     private BigDecimal totalAmount;
+    private SalesReturnStatus status;
     private List<SalesReturnItemDto> items;
     private Long creditNotePaymentId; // Nullable
 }

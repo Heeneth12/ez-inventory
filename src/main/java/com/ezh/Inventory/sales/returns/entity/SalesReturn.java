@@ -36,6 +36,10 @@ public class SalesReturn extends CommonSerializable {
     @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private SalesReturnStatus status;
+
     @OneToMany(mappedBy = "salesReturn", cascade = CascadeType.ALL)
     private List<SalesReturnItem> items = new ArrayList<>();
 

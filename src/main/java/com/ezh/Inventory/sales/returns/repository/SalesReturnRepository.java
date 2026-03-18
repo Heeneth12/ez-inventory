@@ -23,7 +23,7 @@ public interface SalesReturnRepository extends JpaRepository<SalesReturn, Long> 
               AND (:customerId IS NULL OR sr.invoice.customerId = :customerId)
               AND (:invoiceId IS NULL OR sr.invoice.id = :invoiceId)
               AND (:warehouseId IS NULL OR sr.invoice.warehouseId = :warehouseId)
-              AND (:statuses IS NULL OR sr.invoice.status IN :statuses)
+              AND (:statuses IS NULL OR CAST(sr.status as string) IN :statuses)
               AND (
                     (CAST(:fromDate AS timestamp) IS NULL OR sr.returnDate >= :fromDate)
                     AND (CAST(:toDate AS timestamp) IS NULL OR sr.returnDate <= :toDate)

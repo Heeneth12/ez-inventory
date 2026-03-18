@@ -12,6 +12,7 @@ public enum ApprovalType {
     TAX_VARIANCE,           // Check against thresholdPercentage (e.g., Tax differs by > 1%)
 
     // Absolute Checks (Always require approval if enabled)
+    SALES_RETURN,
     SALES_REFUND,
     ADVANCE_REFUND
 }
