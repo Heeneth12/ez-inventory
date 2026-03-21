@@ -26,6 +26,11 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
             "i.name as itemName, " +
             "i.itemCode as itemCode, " +
             "i.sku as itemSku, " +
+            "i.hsnSacCode as hsnSacCode, " +
+            "i.imageUrl as imageUrl, " +
+            "i.sellingPrice as sellingPrice, " +
+            "i.discountPercentage as discountPercentage, " +
+            "i.taxPercentage as taxPercentage, " +
             "sb.batchNumber as batchNumber, " +
             "sb.buyPrice as buyPrice, " +
             "sb.remainingQty as remainingQty, " +

@@ -258,6 +258,11 @@ public class StockServiceImpl implements StockService {
                     .name(first.getItemName())
                     .code(first.getItemCode())
                     .sku(first.getItemSku())
+                    .hsnSacCode(first.getHsnSacCode())
+                    .imageUrl(first.getImageUrl())
+                    .sellingPrice(first.getSellingPrice())
+                    .discountRate(first.getDiscountPercentage())
+                    .taxRate(first.getTaxPercentage())
                     .batches(batchDtos) // Attach the list
                     .build();
         }).collect(Collectors.toList());
