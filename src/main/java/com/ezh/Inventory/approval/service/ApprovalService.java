@@ -140,8 +140,7 @@ public class ApprovalService {
                 this,
                 request.getApprovalType(),
                 request.getReferenceId(),
-                actionDto.getStatus()
-        );
+                actionDto.getStatus());
 
         eventPublisher.publishEvent(event);
 
@@ -150,18 +149,41 @@ public class ApprovalService {
                 .build();
     }
 
+    /**
+     * ACTION LOGIC: User cancels the document causing the pending approval to be
+     * cancelled.
+     */
+    @Transactional
+    public void cancelApprovalByReference(ApprovalType type, Long referenceId, String reason) {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Optional<ApprovalRequest> requestOpt = approvalRequestRepository
+                .findByTenantIdAndApprovalTypeAndReferenceIdAndApprovalStatus(tenantId, type, referenceId,
+                        ApprovalStatus.PENDING);
+
+        if (requestOpt.isPresent()) {
+            ApprovalRequest request = requestOpt.get();
+            request.setApprovalStatus(ApprovalStatus.CANCELLED);
+            request.setActionRemarks(reason);
+            request.setActionedBy(UserContextUtil.getUserId());
+            request.setApprovedDate(new Date());
+            approvalRequestRepository.save(request);
+
+            String notifTitle = String.format("Approval Cancelled: #%s", request.getApprovalRequestNumber());
+            String notifBody = String.format("The request for %s (%s) was cancelled. Reason: %s",
+                    request.getApprovalType(), request.getReferenceCode(), reason);
+            notificationService.sendToApp(notifTitle, notifBody, NotificationType.INFO);
+        }
+    }
 
     @Transactional(readOnly = true)
     public ApprovalRequestDto getApprovalById(Long approvalRequestId) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        ApprovalRequest approvalRequest =
-                approvalRequestRepository
-                        .findByIdAndTenantId(approvalRequestId, tenantId)
-                        .orElseThrow(() ->
-                                new CommonException("Approval request not found", HttpStatus.NOT_FOUND)
-                        );
+        ApprovalRequest approvalRequest = approvalRequestRepository
+                .findByIdAndTenantId(approvalRequestId, tenantId)
+                .orElseThrow(() -> new CommonException("Approval request not found", HttpStatus.NOT_FOUND));
 
         return toDto(approvalRequest);
     }
@@ -174,10 +196,13 @@ public class ApprovalService {
 
         // Sanitize Lists: Convert empty lists to null so the JPQL "IS NULL" check works
         List<ApprovalType> types = (filter.getApprovalTypes() != null && !filter.getApprovalTypes().isEmpty())
-                ? filter.getApprovalTypes() : null;
+                ? filter.getApprovalTypes()
+                : null;
 
-        List<ApprovalStatus> statuses = (filter.getApprovalStatuses() != null && !filter.getApprovalStatuses().isEmpty())
-                ? filter.getApprovalStatuses() : null;
+        List<ApprovalStatus> statuses = (filter.getApprovalStatuses() != null
+                && !filter.getApprovalStatuses().isEmpty())
+                        ? filter.getApprovalStatuses()
+                        : null;
 
         Page<ApprovalRequest> approvalRequests = approvalRequestRepository.searchApprovals(
                 tenantId,
@@ -186,8 +211,7 @@ public class ApprovalService {
                 filter.getSearchQuery(),
                 filter.getStartDateTime(),
                 filter.getEndDateTime(),
-                pageable
-        );
+                pageable);
 
         return approvalRequests.map(ApprovalService::toDto);
     }
@@ -218,9 +242,9 @@ public class ApprovalService {
         }
         // 2. Set the Limits
         config.setEnabled(dto.getIsEnabled());
-        config.setThresholdAmount(dto.getThresholdAmount());       // e.g., 100000.00
+        config.setThresholdAmount(dto.getThresholdAmount()); // e.g., 100000.00
         config.setThresholdPercentage(dto.getThresholdPercentage()); // e.g., 10.0
-        config.setApproverRole(dto.getApproverRole());             // e.g., "MANAGER"
+        config.setApproverRole(dto.getApproverRole()); // e.g., "MANAGER"
 
         approvalConfigRepository.save(config);
 
@@ -231,18 +255,14 @@ public class ApprovalService {
                 .build();
     }
 
-
     @Transactional(readOnly = true)
     public ApprovalConfigDto getConfigById(Long approvalConfigId) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        ApprovalConfig approvalConfig =
-                approvalConfigRepository
-                        .findByIdAndTenantId(approvalConfigId, tenantId)
-                        .orElseThrow(() ->
-                                new CommonException("Approval config not found", HttpStatus.NOT_FOUND)
-                        );
+        ApprovalConfig approvalConfig = approvalConfigRepository
+                .findByIdAndTenantId(approvalConfigId, tenantId)
+                .orElseThrow(() -> new CommonException("Approval config not found", HttpStatus.NOT_FOUND));
 
         return toDto(approvalConfig);
     }
@@ -252,16 +272,12 @@ public class ApprovalService {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
-        ApprovalConfig approvalConfig =
-                approvalConfigRepository
-                        .findByApprovalTypeAndTenantId(approvalType, tenantId)
-                        .orElseThrow(() ->
-                                new CommonException("Approval config not found", HttpStatus.NOT_FOUND)
-                        );
+        ApprovalConfig approvalConfig = approvalConfigRepository
+                .findByApprovalTypeAndTenantId(approvalType, tenantId)
+                .orElseThrow(() -> new CommonException("Approval config not found", HttpStatus.NOT_FOUND));
 
         return toDto(approvalConfig);
     }
-
 
     @Transactional(readOnly = true)
     public Page<ApprovalConfigDto> getAllConfigs(Integer page, Integer size) throws CommonException {
@@ -270,8 +286,7 @@ public class ApprovalService {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<ApprovalConfig> approvalConfigs =
-                approvalConfigRepository.findByTenantId(tenantId, pageable);
+        Page<ApprovalConfig> approvalConfigs = approvalConfigRepository.findByTenantId(tenantId, pageable);
 
         return approvalConfigs.map(ApprovalService::toDto);
     }
@@ -288,12 +303,12 @@ public class ApprovalService {
                 .approvalStatus(ApprovalStatus.PENDING)
                 .description(reason)
                 // Store the value that triggered it (Amount OR Percentage)
-                .valueAmount(context.getAmount() != null ? context.getAmount() : BigDecimal.valueOf(context.getPercentage()))
+                .valueAmount(
+                        context.getAmount() != null ? context.getAmount() : BigDecimal.valueOf(context.getPercentage()))
                 .build();
 
         return approvalRequestRepository.save(request);
     }
-
 
     private static ApprovalConfigDto toDto(ApprovalConfig entity) {
 
@@ -311,7 +326,6 @@ public class ApprovalService {
 
         return dto;
     }
-
 
     public static ApprovalRequestDto toDto(ApprovalRequest entity) {
 

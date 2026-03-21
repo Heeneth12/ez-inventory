@@ -21,6 +21,8 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
 
     Optional<ApprovalRequest> findByIdAndTenantId(Long approvalRequestId, Long tenantId);
 
+    Optional<ApprovalRequest> findByTenantIdAndApprovalTypeAndReferenceIdAndApprovalStatus(Long tenantId, ApprovalType approvalType, Long referenceId, ApprovalStatus status);
+
     Page<ApprovalRequest> findByTenantId(Long tenantId, Pageable pageable);
 
     @Query("""

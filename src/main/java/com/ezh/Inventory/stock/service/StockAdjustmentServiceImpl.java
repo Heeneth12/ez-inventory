@@ -273,6 +273,11 @@ public class StockAdjustmentServiceImpl implements StockAdjustmentService {
             throw new BadRequestException("Only CANCELLED or REJECTED status updates are allowed");
         }
 
+        // Cancel the pending approval flow if the user cancels their adjustment
+        if (status == AdjustmentStatus.CANCELLED && currentStatus == AdjustmentStatus.PENDING_APPROVAL) {
+            approvalService.cancelApprovalByReference(ApprovalType.STOCK_ADJUSTMENT, adjustmentId, "Stock adjustment cancelled by user");
+        }
+
         adjustment.setAdjustmentStatus(status);
         stockAdjustmentRepository.save(adjustment);
 
