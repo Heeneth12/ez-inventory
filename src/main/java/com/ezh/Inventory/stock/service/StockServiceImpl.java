@@ -177,12 +177,13 @@ public class StockServiceImpl implements StockService {
     public Page<StockLedgerDto> getStockTransactions(StockLedgerFilter filterDto, Integer page, Integer size) throws CommonException {
         Long tenantId = getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
         Page<StockLedger> stockLedger = stockLedgerRepository.findAllStockLedger(
                 tenantId,
                 filterDto.getId(),
                 filterDto.getWarehouseId(),
-                filterDto.getTransactionTypes(),
-                filterDto.getReferenceTypes(),
+                filterDto.getTransactionTypes().isEmpty() ? null : filterDto.getTransactionTypes(),
+                filterDto.getReferenceTypes().isEmpty() ? null : filterDto.getReferenceTypes(),
                 filterDto.getSearchQuery(),
                 filterDto.getStartDateTime(),
                 filterDto.getEndDateTime(),

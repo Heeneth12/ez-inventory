@@ -194,17 +194,20 @@ public class StockAdjustmentServiceImpl implements StockAdjustmentService {
     @Transactional(readOnly = true)
     public Page<StockAdjustmentListDto> getAllStockAdjustments(StockFilterDto filter, Integer page, Integer size) {
         Long tenantId = getTenantIdOrThrow();
-        Pageable pageable = PageRequest.of(page, size, Sort.by("created_at").descending());
+        Pageable pageable = PageRequest.of(page, size);
+        // Sanitize Lists: Convert empty lists to null so the JPQL "IS NULL" check works
+        List<AdjustmentStatus> statuses = (filter.getStockAdjustmentStatuses() != null && !filter.getStockAdjustmentStatuses().isEmpty())
+                ? filter.getStockAdjustmentStatuses() : null;
 
-        // Assuming you have a basic findAll or specification
         Page<StockAdjustment> adjustments = stockAdjustmentRepository.findAllStockAdjustment(
                 tenantId,
                 filter.getId(),
-                filter.getStatus(),
+                filter.getStockAdjustmentNumber(),
+                statuses,
                 filter.getWarehouseId(),
                 filter.getSearchQuery(),
-                filter.getFromDate(),
-                filter.getToDate(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime(),
                 pageable
         );
 

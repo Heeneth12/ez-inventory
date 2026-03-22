@@ -1,21 +1,19 @@
 package com.ezh.Inventory.stock.dto;
 
+import com.ezh.Inventory.stock.entity.AdjustmentStatus;
+import com.ezh.Inventory.utils.common.CommonFilter;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @AllArgsConstructor
 @NoArgsConstructor
-public class StockFilterDto {
-    private Long id;
-    private String searchQuery;
-    private String status;
-    private Long customerId;
+public class StockFilterDto extends CommonFilter {
     private Long itemId;
-    private Long warehouseId;
-    private Date fromDate;
-    private Date toDate;
+    private List<AdjustmentStatus> stockAdjustmentStatuses;
+    private String stockAdjustmentNumber;
 }
