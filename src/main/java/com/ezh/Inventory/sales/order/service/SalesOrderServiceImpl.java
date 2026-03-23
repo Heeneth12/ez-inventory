@@ -31,6 +31,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -162,8 +163,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Transactional(readOnly = true)
     public Page<SalesOrderDto> getAllSalesOrders(SalesOrderFilter filter, int page, int size) {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
-        Pageable pageable = PageRequest.of(page, size);
-
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<SalesOrder> result = salesOrderRepository.getAllSalesOrders(
                 tenantId, filter.getId(), filter.getSoStatuses(), filter.getSoSource(), filter.getCustomerId(),
                 filter.getWarehouseId(), filter.getSearchQuery(), filter.getStartDateTime(),
@@ -284,6 +284,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .convertedToInvoice(converted)
                     .pendingConversion(pending)
                     .conversionRate(conversionRate)
+                    .totalSalesValue(projection.getTotalSalesValue() != null ? projection.getTotalSalesValue() : BigDecimal.ZERO)
+                    .convertedSalesValue(projection.getConvertedSalesValue() != null ? projection.getConvertedSalesValue() : BigDecimal.ZERO)
+                    .pendingApprovalCount(projection.getPendingApprovalCount() != null ? projection.getPendingApprovalCount() : 0L)
+                    .cancelledRejectedCount(projection.getCancelledRejectedCount() != null ? projection.getCancelledRejectedCount() : 0L)
                     .build();
         }).toList();
     }
@@ -316,6 +320,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             boolean hasInvoicedItems = so.getItems().stream().anyMatch(i -> i.getInvoicedQty() > 0);
             if (hasInvoicedItems) {
                 throw new BadRequestException("Cannot cancel order with invoiced items. Please return items first.");
+            }
+
+            if (currentStatus == SalesOrderStatus.PENDING_APPROVAL) {
+                approvalService.cancelApprovalByReference(ApprovalType.SALES_ORDER_DISCOUNT, id, "Sales order cancelled");
             }
         }
         //Apply the new status and save

@@ -17,6 +17,10 @@ public class SalesConversionReportDto {
     private Long convertedToInvoice;
     private Long pendingConversion;
     private BigDecimal conversionRate;
+    private BigDecimal totalSalesValue;
+    private BigDecimal convertedSalesValue;
+    private Long pendingApprovalCount;
+    private Long cancelledRejectedCount;
     private LocalDate reportDate;
 }
 

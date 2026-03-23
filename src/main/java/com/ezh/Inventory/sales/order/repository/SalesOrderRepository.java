@@ -128,7 +128,11 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             SELECT
                 FUNCTION('DATE', so.createdAt) AS reportDate,
                 COUNT(so) AS totalSalesOrders,
-                COUNT(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN 1 END) AS convertedToInvoice
+                COUNT(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN 1 END) AS convertedToInvoice,
+                SUM(so.grandTotal) AS totalSalesValue,
+                SUM(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN so.grandTotal ELSE 0 END) AS convertedSalesValue,
+                COUNT(CASE WHEN so.status = 'PENDING_APPROVAL' THEN 1 END) AS pendingApprovalCount,
+                COUNT(CASE WHEN so.status IN ('CANCELLED', 'REJECTED') THEN 1 END) AS cancelledRejectedCount
             FROM SalesOrder so
             WHERE so.tenantId = :tenantId
               AND (:customerId IS NULL OR so.customerId = :customerId)
@@ -150,9 +154,12 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     @Query("""
             SELECT 
                 COALESCE(SUM(so.grandTotal), 0) AS totalValue,
+                COALESCE(SUM(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN so.grandTotal ELSE 0 END), 0) AS convertedSalesValue,
+                COUNT(so) AS totalSalesOrders,
+                COUNT(CASE WHEN so.status IN ('PARTIALLY_INVOICED', 'FULLY_INVOICED') THEN 1 END) AS convertedToInvoiceCount,
                 COUNT(CASE WHEN so.status = 'CONFIRMED' THEN 1 END) AS confirmedCount,
                 COUNT(CASE WHEN so.status = 'PENDING_APPROVAL' THEN 1 END) AS pendingApprovalCount,
-                COUNT(CASE WHEN so.status = 'CANCELLED' THEN 1 END) AS cancelledCount
+                COUNT(CASE WHEN so.status IN ('CANCELLED', 'REJECTED') THEN 1 END) AS cancelledCount
             FROM SalesOrder so
             WHERE so.tenantId = :tenantId
               AND (CAST(:fromDate AS timestamp) IS NULL OR so.createdAt >= :fromDate)

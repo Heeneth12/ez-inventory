@@ -6,4 +6,8 @@ public interface SalesConversionDateProjection {
     LocalDate getReportDate();
     Long getTotalSalesOrders();
     Long getConvertedToInvoice();
+    java.math.BigDecimal getTotalSalesValue();
+    java.math.BigDecimal getConvertedSalesValue();
+    Long getPendingApprovalCount();
+    Long getCancelledRejectedCount();
 }
