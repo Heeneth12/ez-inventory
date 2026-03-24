@@ -44,4 +44,8 @@ public interface DeliveryService {
     Page<RouteDto> getAllRoutes(int page, int size) throws CommonException;
 
     RouteSummaryDto getRouteSummary() throws CommonException;
+
+    List<BulkDeliveryItemDto> getBulkDeliveryItems(DeliveryFilterDto filter) throws CommonException;
+
+    byte[] downloadBulkDeliveryItemsExcel(DeliveryFilterDto filter) throws CommonException;
 }

@@ -44,8 +44,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("salesOrderId") Long salesOrderId,
             @Param("statuses") List<InvoiceStatus> statuses,
             @Param("customerId") Long customerId,
-            @Param("warehouseId") Long warehouseId
-    );
+            @Param("warehouseId") Long warehouseId);
 
     @Query("""
                 SELECT i FROM Invoice i
@@ -63,8 +62,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("status") InvoiceStatus status,
             @Param("customerId") Long customerId,
             @Param("warehouseId") Long warehouseId,
-            Pageable pageable
-    );
+            Pageable pageable);
 
     @Query("""
             SELECT i FROM Invoice i
@@ -96,8 +94,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,
-            Pageable pageable
-    );
+            Pageable pageable);
 
     @Query("""
             SELECT i FROM Invoice i
@@ -128,7 +125,24 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             @Param("warehouseId") Long warehouseId,
             @Param("searchQuery") String searchQuery,
             @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate
-    );
+            @Param("toDate") LocalDateTime toDate);
+
+
+    @Query("""
+            SELECT
+                COALESCE(SUM(i.grandTotal), 0) AS totalInvoiceValue,
+                COALESCE(SUM(i.amountPaid), 0) AS collectedAmount,
+                COALESCE(SUM(i.balance), 0) AS uncollectedAmount,
+                COUNT(CASE WHEN i.status = 'PENDING' THEN 1 END) AS pendingCount,
+                COUNT(CASE WHEN i.deliveryStatus = 'PENDING' THEN 1 END) AS pendingDeliveryCount
+            FROM Invoice i
+            WHERE i.tenantId = :tenantId
+              AND (CAST(:fromDate AS timestamp) IS NULL OR i.createdAt >= :fromDate)
+              AND (CAST(:toDate AS timestamp) IS NULL OR i.createdAt <= :toDate)
+            """)
+    com.ezh.Inventory.sales.invoice.dto.InvoiceStats getDashboardStats(
+            @Param("tenantId") Long tenantId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate);
 
 }

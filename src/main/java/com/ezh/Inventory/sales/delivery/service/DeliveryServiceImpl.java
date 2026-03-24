@@ -34,6 +34,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Optional;
+import com.ezh.Inventory.items.entity.Item;
+import com.ezh.Inventory.items.repository.ItemRepository;
+import com.ezh.Inventory.stock.entity.StockBatch;
+import com.ezh.Inventory.stock.repository.StockBatchRepository;
 
 @Slf4j
 @Service
@@ -45,6 +51,8 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final InvoiceRepository invoiceRepository;
     private final RouteRepository routeRepository;
     private final AuthServiceClient authServiceClient;
+    private final ItemRepository itemRepository;
+    private final StockBatchRepository stockBatchRepository;
 
 
     @Override
@@ -608,4 +616,88 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<BulkDeliveryItemDto> getBulkDeliveryItems(DeliveryFilterDto filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        List<Delivery> deliveries = deliveryRepository.searchDeliveries(
+                tenantId,
+                filter.getId(),
+                filter.getDeliveryNumber(),
+                filter.getInvoiceId(),
+                filter.getCustomerId(),
+                filter.getShipmentTypes(),
+                filter.getShipmentStatuses(),
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
+
+        if (filter.getInvoiceIds() != null && !filter.getInvoiceIds().isEmpty()) {
+            deliveries = deliveries.stream()
+                    .filter(d -> d.getInvoice() != null && filter.getInvoiceIds().contains(d.getInvoice().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        if (filter.getDeliveryIds() != null && !filter.getDeliveryIds().isEmpty()) {
+            deliveries = deliveries.stream()
+                    .filter(d -> filter.getDeliveryIds().contains(d.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        Map<String, BulkDeliveryItemDto> itemMap = new HashMap<>();
+        for (Delivery delivery : deliveries) {
+            for (DeliveryItem item : delivery.getItems()) {
+                String key = item.getItemId() + "_" + (item.getBatchNumber() != null ? item.getBatchNumber() : "NO_BATCH");
+                itemMap.compute(key, (k, existing) -> {
+                    if (existing == null) {
+                        return BulkDeliveryItemDto.builder()
+                                .itemId(item.getItemId())
+                                .itemName(item.getItemName())
+                                .batchNumber(item.getBatchNumber())
+                                .totalQuantity(item.getQuantity())
+                                .build();
+                    } else {
+                        existing.setTotalQuantity(existing.getTotalQuantity() + item.getQuantity());
+                        return existing;
+                    }
+                });
+            }
+        }
+
+        List<BulkDeliveryItemDto> resultList = new ArrayList<>(itemMap.values());
+        
+        List<Long> itemIds = resultList.stream().map(BulkDeliveryItemDto::getItemId).distinct().collect(Collectors.toList());
+        if (!itemIds.isEmpty()) {
+            List<Item> items = itemRepository.findAllById(itemIds);
+            Map<Long, Item> itemDataMap = items.stream().collect(Collectors.toMap(Item::getId, i -> i));
+
+            for (BulkDeliveryItemDto dto : resultList) {
+                Item itemInfo = itemDataMap.get(dto.getItemId());
+                if (itemInfo != null) {
+                    dto.setItemCode(itemInfo.getItemCode());
+                    dto.setSku(itemInfo.getSku());
+                    dto.setCategory(itemInfo.getCategory());
+                    dto.setBrand(itemInfo.getBrand());
+                    dto.setMrp(itemInfo.getMrp());
+                    dto.setSellingPrice(itemInfo.getSellingPrice());
+                }
+
+                if (dto.getBatchNumber() != null && !dto.getBatchNumber().equals("NO_BATCH")) {
+                    Optional<StockBatch> batchOpt = stockBatchRepository.findFirstByItemIdAndBatchNumberAndTenantId(
+                            dto.getItemId(), dto.getBatchNumber(), tenantId);
+                    batchOpt.ifPresent(stockBatch -> dto.setExpiryDate(stockBatch.getExpiryDate()));
+                }
+            }
+        }
+
+        return resultList;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadBulkDeliveryItemsExcel(DeliveryFilterDto filter) throws CommonException {
+        List<BulkDeliveryItemDto> items = getBulkDeliveryItems(filter);
+        return com.ezh.Inventory.sales.delivery.utils.DeliveryExportUtils.toBulkItemsExcel(items).readAllBytes();
+    }
 }

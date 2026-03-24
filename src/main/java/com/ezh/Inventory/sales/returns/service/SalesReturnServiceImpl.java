@@ -272,7 +272,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
                 salesReturn.getTotalAmount(),
                 salesReturn.getReturnNumber());
 
-        salesReturn.setStatus(SalesReturnStatus.APPROVED);
+        salesReturn.setStatus(SalesReturnStatus.COMPLETED);
         salesReturnRepository.save(salesReturn);
     }
 

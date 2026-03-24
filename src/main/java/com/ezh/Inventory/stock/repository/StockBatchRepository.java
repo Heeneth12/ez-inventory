@@ -16,6 +16,8 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
     // Find specific batch to sell from
     Optional<StockBatch> findByItemIdAndBatchNumberAndWarehouseId(Long itemId, String batchNumber, Long warehouseId);
 
+    Optional<StockBatch> findFirstByItemIdAndBatchNumberAndTenantId(Long itemId, String batchNumber, Long tenantId);
+
     List<StockBatch> findByItemIdAndWarehouseIdAndRemainingQtyGreaterThanOrderByCreatedAtAsc(Long itemId, Long warehouseId, Integer minQty);
 
     // Find all available batches for an item (Useful for FIFO)

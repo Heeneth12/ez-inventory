@@ -24,4 +24,6 @@ public class DeliveryFilterDto extends CommonFilter {
     private String deliveryNumber;
     private List<ShipmentType> shipmentTypes;
     private List<ShipmentStatus> shipmentStatuses;
+    private List<Long> deliveryIds;
+    private List<Long> invoiceIds;
 }

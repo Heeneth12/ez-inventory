@@ -236,6 +236,7 @@ CREATE TABLE sales_return (
     tenant_id BIGINT NOT NULL,
     return_number VARCHAR(50) UNIQUE NOT NULL,
     invoice_id BIGINT NOT NULL,
+    status VARCHAR(50) NOT NULL,
     return_date TIMESTAMP NOT NULL,
     total_amount DECIMAL(18, 2) NOT NULL,
     credit_note_payment_id BIGINT,

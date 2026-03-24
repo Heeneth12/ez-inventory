@@ -3,10 +3,7 @@ package com.ezh.Inventory.sales.invoice.service;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceExcelRowDto;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
-import com.ezh.Inventory.sales.invoice.dto.InvoiceItemDto;
+import com.ezh.Inventory.sales.invoice.dto.*;
 import com.ezh.Inventory.sales.invoice.entity.*;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
 import com.ezh.Inventory.sales.invoice.utils.InvoiceExportUtils;
@@ -253,6 +250,19 @@ public class InvoiceServiceImpl implements InvoiceService {
         );
         final Map<Long, UserMiniDto> finalMap = new HashMap<>();
         return invoices.stream().map(inv -> mapToDto(inv, finalMap, false)).toList();
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceStats getStats(InvoiceFilter filter) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        return invoiceRepository.getDashboardStats(
+                tenantId,
+                filter.getStartDateTime(),
+                filter.getEndDateTime()
+        );
     }
 
 

@@ -3,6 +3,7 @@ package com.ezh.Inventory.sales.invoice.controller;
 
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceFilter;
+import com.ezh.Inventory.sales.invoice.dto.InvoiceStats;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
 import com.ezh.Inventory.sales.invoice.service.InvoiceService;
@@ -45,7 +46,7 @@ public class InvoiceController {
 
     @PostMapping(value = "/{invoiceId}/update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<CommonResponse<?>> updateInvoice(@PathVariable Long invoiceId,
-                                                          @RequestBody InvoiceDto invoiceDto) throws CommonException {
+                                                             @RequestBody InvoiceDto invoiceDto) throws CommonException {
         log.info("Entering updateInvoice with : {}", invoiceDto);
         CommonResponse<?> response = invoiceService.updateInvoice(invoiceId, invoiceDto);
         return ResponseResource.success(HttpStatus.CREATED, response, "Invoice updated successfully");
@@ -84,6 +85,13 @@ public class InvoiceController {
                 .body(response);
     }
 
+
+    @PostMapping(value = "/stats", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<InvoiceStats> getInvoiceStats(@RequestBody InvoiceFilter filter) throws CommonException {
+        log.info("Getting invoice stats with filter: {}", filter);
+        InvoiceStats response = invoiceService.getStats(filter);
+        return ResponseResource.success(HttpStatus.OK, response, "Invoice stats fetched successfully");
+    }
 
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Long id) {

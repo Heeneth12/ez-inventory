@@ -1,6 +1,5 @@
 package com.ezh.Inventory.sales.delivery.controller;
 
-
 import com.ezh.Inventory.sales.delivery.dto.*;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
@@ -12,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +33,8 @@ public class DeliveryController {
     }
 
     @PostMapping(value = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<Page<DeliveryDto>> getDeliveryDetails(@RequestParam Integer page, @RequestParam Integer size,
+    public ResponseResource<Page<DeliveryDto>> getDeliveryDetails(@RequestParam Integer page,
+                                                                  @RequestParam Integer size,
                                                                   @RequestBody DeliveryFilterDto filter) throws CommonException {
         log.info("Fetching all deliveries with page: {} and size: {}", page, size);
         Page<DeliveryDto> response = deliveryService.getAllDeliveries(page, size, filter);
@@ -102,5 +104,25 @@ public class DeliveryController {
         log.info("Fetching delivery and route summary dashboard stats");
         RouteSummaryDto response = deliveryService.getRouteSummary();
         return ResponseResource.success(HttpStatus.OK, response, "Summary stats fetched successfully");
+    }
+
+    @PostMapping(value = "/bulk-items", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<List<BulkDeliveryItemDto>> getBulkDeliveryItems(@RequestBody DeliveryFilterDto filter)
+            throws CommonException {
+        log.info("Fetching bulk delivery items with filter: {}", filter);
+        List<BulkDeliveryItemDto> response = deliveryService.getBulkDeliveryItems(filter);
+        return ResponseResource.success(HttpStatus.OK, response, "Bulk delivery items fetched successfully");
+    }
+
+    @PostMapping(value = "/bulk-items/download", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<byte[]> downloadBulkDeliveryItemsExcel(@RequestBody DeliveryFilterDto filter)
+            throws CommonException {
+        log.info("Downloading bulk delivery items report in excel with filter: {}", filter);
+        byte[] response = deliveryService.downloadBulkDeliveryItemsExcel(filter);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=bulk_delivery_items.xlsx")
+                .contentType(
+                        MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(response);
     }
 }

@@ -178,12 +178,22 @@ public class StockServiceImpl implements StockService {
         Long tenantId = getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
+        List<MovementType> transactionTypes =
+                (filterDto.getTransactionTypes() == null || filterDto.getTransactionTypes().isEmpty())
+                        ? null
+                        : filterDto.getTransactionTypes();
+
+        List<String> referenceTypes =
+                (filterDto.getReferenceTypes() == null || filterDto.getReferenceTypes().isEmpty())
+                        ? null
+                        : filterDto.getReferenceTypes();
+
         Page<StockLedger> stockLedger = stockLedgerRepository.findAllStockLedger(
                 tenantId,
                 filterDto.getId(),
                 filterDto.getWarehouseId(),
-                filterDto.getTransactionTypes().isEmpty() ? null : filterDto.getTransactionTypes(),
-                filterDto.getReferenceTypes().isEmpty() ? null : filterDto.getReferenceTypes(),
+                transactionTypes,
+                referenceTypes,
                 filterDto.getSearchQuery(),
                 filterDto.getStartDateTime(),
                 filterDto.getEndDateTime(),

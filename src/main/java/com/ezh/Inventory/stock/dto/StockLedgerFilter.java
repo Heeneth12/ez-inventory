@@ -16,6 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class StockLedgerFilter extends CommonFilter {
+     private Long itemId;
      private List<MovementType> transactionTypes;
      private List<String> referenceTypes;
 }
