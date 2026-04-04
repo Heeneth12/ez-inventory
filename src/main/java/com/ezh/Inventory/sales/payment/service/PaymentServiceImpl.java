@@ -277,16 +277,72 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Refund amount exceeds available unallocated balance");
         }
 
-        // Reduce unallocated amount and add a remark
-        payment.setUnallocatedAmount(payment.getUnallocatedAmount().subtract(refundAmount));
-        payment.setRemarks(payment.getRemarks() + " | Refunded: " + refundAmount);
-
-        paymentRepository.save(payment);
+        performSinglePaymentRefund(payment, refundAmount, "Single payment refund");
 
         return CommonResponse.builder()
                 .status(Status.SUCCESS)
                 .message("Refund processed successfully")
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public CommonResponse<?> refundFromWallet(WalletRefundDto refundDto) throws CommonException {
+        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        BigDecimal amountToRefund = refundDto.getAmount();
+
+        // 1. Fetch all available credits for this customer (Oldest First - FIFO)
+        List<Payment> availableCredits = paymentRepository
+                .findByCustomerIdAndTenantIdAndUnallocatedAmountGreaterThanOrderByPaymentDateAsc(
+                        refundDto.getCustomerId(), tenantId, BigDecimal.ZERO);
+
+        // 2. Validate total available balance across all records
+        BigDecimal totalAvailable = availableCredits.stream()
+                .map(Payment::getUnallocatedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalAvailable.compareTo(amountToRefund) < 0) {
+            throw new BadRequestException("Insufficient wallet balance for refund. Available: " + totalAvailable);
+        }
+
+        // 3. Consume credits across multiple payment records if necessary
+        for (Payment payment : availableCredits) {
+            if (amountToRefund.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal canRefund = payment.getUnallocatedAmount().min(amountToRefund);
+
+            performSinglePaymentRefund(payment, canRefund, refundDto.getRemarks());
+
+            amountToRefund = amountToRefund.subtract(canRefund);
+        }
+
+        return CommonResponse.builder()
+                .status(Status.SUCCESS)
+                .message("Wallet refund processed successfully")
+                .build();
+    }
+
+    private void performSinglePaymentRefund(Payment payment, BigDecimal refundAmount, String userRemarks) {
+        // Redundancy check: Ensure we don't over-refund due to any race conditions
+        if (payment.getUnallocatedAmount().compareTo(refundAmount) < 0) {
+            throw new BadRequestException("Refund amount " + refundAmount + " exceeds available balance for payment " + payment.getPaymentNumber());
+        }
+
+        // Reduce both amount and unallocated amount to keep balances consistent
+        payment.setAmount(payment.getAmount().subtract(refundAmount));
+        payment.setUnallocatedAmount(payment.getUnallocatedAmount().subtract(refundAmount));
+
+        // Add a remark for the audit trail
+        String refundRemark = String.format(" | Refunded: %s %s", refundAmount, (userRemarks != null ? "(" + userRemarks + ")" : ""));
+        payment.setRemarks((payment.getRemarks() != null ? payment.getRemarks() : "") + refundRemark);
+
+        // If net amount becomes 0 and no invoices were ever paid with this, set to REFUNDED
+        // If some was allocated, the status remains PARTIALLY_ALLOCATED or ALLOCATED
+        if (payment.getAmount().compareTo(BigDecimal.ZERO) == 0 && payment.getAllocatedAmount().compareTo(BigDecimal.ZERO) == 0) {
+            payment.setStatus(PaymentStatus.REFUNDED);
+        }
+
+        paymentRepository.save(payment);
     }
 
     @Override

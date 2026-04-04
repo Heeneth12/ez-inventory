@@ -80,12 +80,19 @@ public class PaymentController {
         return ResponseResource.success(HttpStatus.OK, response, "Customer summary fetched successfully");
     }
 
+    @PostMapping(value = "/wallet/refund", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> refundFromWallet(@RequestBody WalletRefundDto refundDto) throws CommonException {
+        log.info("Processing wallet refund: {}", refundDto);
+        CommonResponse<?> response = paymentService.refundFromWallet(refundDto);
+        return ResponseResource.success(HttpStatus.OK, response, "Wallet refund processed successfully");
+    }
+
     @PostMapping(value = "/wallet/refund/{paymentId}")
-    public ResponseResource<CommonResponse<?>> refundWalletAmount(@PathVariable Long paymentId,
-                                                                  @RequestParam BigDecimal amount) throws CommonException {
-        log.info("Refunding amount {} from paymentId {}", amount, paymentId);
+    public ResponseResource<CommonResponse<?>> refundSpecificPayment(@PathVariable Long paymentId,
+                                                                     @RequestParam BigDecimal amount) throws CommonException {
+        log.info("Refunding specific amount {} from paymentId {}", amount, paymentId);
         CommonResponse<?> response = paymentService.refundUnallocatedAmount(paymentId, amount);
-        return ResponseResource.success(HttpStatus.OK, response, "Refund processed successfully");
+        return ResponseResource.success(HttpStatus.OK, response, "Specific payment refund processed successfully");
     }
 
     @PostMapping(value = "/wallet/apply", consumes = MediaType.APPLICATION_JSON_VALUE)
