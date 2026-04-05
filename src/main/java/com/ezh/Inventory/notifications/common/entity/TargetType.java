@@ -1,4 +1,4 @@
-package com.ezh.Inventory.notifications.entity;
+package com.ezh.Inventory.notifications.common.entity;
 
 public enum TargetType {
     GLOBAL,
