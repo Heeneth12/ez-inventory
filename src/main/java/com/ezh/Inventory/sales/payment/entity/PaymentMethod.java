@@ -10,5 +10,6 @@ public enum PaymentMethod {
     MOBILE_WALLET,
     NET_BANKING,
     OTHER,
-    CREDIT_NOTE
+    CREDIT_NOTE,
+    RAZOR_PAY
 }

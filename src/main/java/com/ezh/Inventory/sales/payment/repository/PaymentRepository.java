@@ -56,6 +56,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     );
 
 
+    Optional<Payment> findByReferenceNumber(String referenceNumber);
+
     @Query("SELECT " +
             "COUNT(p.id) as totalCount, " +
             "SUM(p.amount) as totalCollected, " +
