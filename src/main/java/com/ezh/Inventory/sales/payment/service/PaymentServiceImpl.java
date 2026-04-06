@@ -42,7 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public CommonResponse<?> recordPayment(PaymentCreateDto dto) throws CommonException {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        Long tenantId = (dto.getTenantId() != null) ? dto.getTenantId() : UserContextUtil.getTenantIdOrThrow();
 
         // 1. Create Payment Header (Source of Funds)
         Payment payment = Payment.builder()
@@ -123,7 +123,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public List<InvoicePaymentHistoryDto> getPaymentsByInvoiceId(Long invoiceId) throws CommonException {
@@ -177,7 +176,6 @@ public class PaymentServiceImpl implements PaymentService {
         return payments.map(p -> mapToDto(p, finalMap, true, false));
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public PaymentDto getPayment(Long paymentId) throws CommonException {
@@ -193,7 +191,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional()
-    public CommonResponse createCreditNote(Long customerId, BigDecimal amount, String returnRefNumber) throws CommonException {
+    public CommonResponse createCreditNote(Long customerId, BigDecimal amount, String returnRefNumber)
+            throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         Payment creditNote = Payment.builder()
@@ -244,16 +243,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 3. Consume credits across multiple payment records if necessary
         for (Payment payment : availableCredits) {
-            if (amountToApply.compareTo(BigDecimal.ZERO) <= 0) break;
+            if (amountToApply.compareTo(BigDecimal.ZERO) <= 0)
+                break;
 
             BigDecimal canTake = payment.getUnallocatedAmount().min(amountToApply);
 
             // Prepare allocation for this specific payment record
             List<PaymentAllocationDto> allocations = List.of(
-                    new PaymentAllocationDto(walletPayDto.getInvoiceId(), canTake)
-            );
+                    new PaymentAllocationDto(walletPayDto.getInvoiceId(), canTake));
 
-            // Use your existing logic to update balances and create PaymentAllocation entities
+            // Use your existing logic to update balances and create PaymentAllocation
+            // entities
             processAllocations(payment, allocations, tenantId);
 
             amountToApply = amountToApply.subtract(canTake);
@@ -307,7 +307,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 3. Consume credits across multiple payment records if necessary
         for (Payment payment : availableCredits) {
-            if (amountToRefund.compareTo(BigDecimal.ZERO) <= 0) break;
+            if (amountToRefund.compareTo(BigDecimal.ZERO) <= 0)
+                break;
 
             BigDecimal canRefund = payment.getUnallocatedAmount().min(amountToRefund);
 
@@ -325,7 +326,8 @@ public class PaymentServiceImpl implements PaymentService {
     private void performSinglePaymentRefund(Payment payment, BigDecimal refundAmount, String userRemarks) {
         // Redundancy check: Ensure we don't over-refund due to any race conditions
         if (payment.getUnallocatedAmount().compareTo(refundAmount) < 0) {
-            throw new BadRequestException("Refund amount " + refundAmount + " exceeds available balance for payment " + payment.getPaymentNumber());
+            throw new BadRequestException("Refund amount " + refundAmount + " exceeds available balance for payment "
+                    + payment.getPaymentNumber());
         }
 
         // Reduce both amount and unallocated amount to keep balances consistent
@@ -333,12 +335,15 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setUnallocatedAmount(payment.getUnallocatedAmount().subtract(refundAmount));
 
         // Add a remark for the audit trail
-        String refundRemark = String.format(" | Refunded: %s %s", refundAmount, (userRemarks != null ? "(" + userRemarks + ")" : ""));
+        String refundRemark = String.format(" | Refunded: %s %s", refundAmount,
+                (userRemarks != null ? "(" + userRemarks + ")" : ""));
         payment.setRemarks((payment.getRemarks() != null ? payment.getRemarks() : "") + refundRemark);
 
-        // If net amount becomes 0 and no invoices were ever paid with this, set to REFUNDED
+        // If net amount becomes 0 and no invoices were ever paid with this, set to
+        // REFUNDED
         // If some was allocated, the status remains PARTIALLY_ALLOCATED or ALLOCATED
-        if (payment.getAmount().compareTo(BigDecimal.ZERO) == 0 && payment.getAllocatedAmount().compareTo(BigDecimal.ZERO) == 0) {
+        if (payment.getAmount().compareTo(BigDecimal.ZERO) == 0
+                && payment.getAllocatedAmount().compareTo(BigDecimal.ZERO) == 0) {
             payment.setStatus(PaymentStatus.REFUNDED);
         }
 
@@ -347,7 +352,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerFinancialSummaryDto getCustomerFinancialSummary(Long customerId)  throws CommonException{
+    public CustomerFinancialSummaryDto getCustomerFinancialSummary(Long customerId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         // 1. Calculate Total Due (Sum of all unpaid/partial invoice balances)
@@ -362,7 +367,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .walletBalance(walletBalance != null ? walletBalance : BigDecimal.ZERO)
                 .build();
     }
-
 
     @Override
     @Transactional
@@ -395,7 +399,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentStats getStats(CommonFilter filter)  throws CommonException{
+    public PaymentStats getStats(CommonFilter filter) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         return paymentRepository.getPaymentStats(tenantId);
     }
@@ -405,11 +409,13 @@ public class PaymentServiceImpl implements PaymentService {
 
         for (PaymentAllocationDto allocDto : allocDtos) {
             Invoice invoice = invoiceRepository.findByIdAndTenantId(allocDto.getInvoiceId(), tenantId)
-                    .orElseThrow(() -> new CommonException("Invoice " + allocDto.getInvoiceId() + " not found", HttpStatus.BAD_REQUEST));
+                    .orElseThrow(() -> new CommonException("Invoice " + allocDto.getInvoiceId() + " not found",
+                            HttpStatus.BAD_REQUEST));
 
             // A. Validate: Don't overpay the invoice
             if (allocDto.getAmountToPay().compareTo(invoice.getBalance()) > 0) {
-                throw new CommonException("Amount " + allocDto.getAmountToPay() + " exceeds balance for Invoice " + invoice.getInvoiceNumber(), HttpStatus.BAD_REQUEST);
+                throw new CommonException("Amount " + allocDto.getAmountToPay() + " exceeds balance for Invoice "
+                        + invoice.getInvoiceNumber(), HttpStatus.BAD_REQUEST);
             }
 
             // B. Create Allocation Record
@@ -456,8 +462,10 @@ public class PaymentServiceImpl implements PaymentService {
         invoiceRepository.save(invoice);
     }
 
-    private PaymentDto mapToDto(Payment payment, Map<Long, UserMiniDto> customerMap, boolean includeContact, boolean subDetails) {
-        if (payment == null) return null;
+    private PaymentDto mapToDto(Payment payment, Map<Long, UserMiniDto> customerMap, boolean includeContact,
+            boolean subDetails) {
+        if (payment == null)
+            return null;
 
         // 1. Map Allocation Details (Invoices)
         List<InvoiceMiniDto> invoiceDetails = new ArrayList<>();

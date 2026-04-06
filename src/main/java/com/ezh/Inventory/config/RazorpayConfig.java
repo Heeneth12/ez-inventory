@@ -1,5 +1,6 @@
 package com.ezh.Inventory.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import lombok.Getter;
@@ -22,5 +23,10 @@ public class RazorpayConfig {
     @Bean
     public RazorpayClient razorpayClient() throws RazorpayException {
         return new RazorpayClient(keyId, keySecret);
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }

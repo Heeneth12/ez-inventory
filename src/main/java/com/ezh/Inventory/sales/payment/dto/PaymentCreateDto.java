@@ -19,4 +19,9 @@ public class PaymentCreateDto {
     private String remarks;
     // Optional:Empty list = Advance Payment
     private List<PaymentAllocationDto> allocations;
+    /**
+     * When set, overrides {@code UserContextUtil.getTenantIdOrThrow()}.
+     * Used by webhook handlers that run without a JWT security context.
+     */
+    private Long tenantId;
 }
