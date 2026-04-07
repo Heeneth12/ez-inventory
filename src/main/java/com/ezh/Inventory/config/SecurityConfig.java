@@ -33,7 +33,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/actuator/**",
-                                "/ws/**"
+                                "/ws/**",
+                                "/v1/razorpay/webhook"  // Called by Razorpay servers, no JWT — secured by HMAC signature instead
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

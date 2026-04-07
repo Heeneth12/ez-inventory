@@ -2,8 +2,8 @@ package com.ezh.Inventory.purchase.po.service;
 
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
-import com.ezh.Inventory.notifications.entity.NotificationType;
-import com.ezh.Inventory.notifications.service.NotificationService;
+import com.ezh.Inventory.notifications.common.entity.NotificationType;
+import com.ezh.Inventory.notifications.common.service.NotificationService;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderDto;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderFilter;
 import com.ezh.Inventory.purchase.po.dto.PurchaseOrderItemDto;

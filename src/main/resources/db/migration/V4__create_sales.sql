@@ -157,6 +157,36 @@ CREATE TABLE payment_allocation (
 CREATE INDEX idx_payment_allocation_payment_id ON payment_allocation(payment_id);
 CREATE INDEX idx_payment_allocation_invoice_id ON payment_allocation(invoice_id);
 
+CREATE TABLE razorpay_transaction (
+    id BIGSERIAL PRIMARY KEY,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT false,
+    tenant_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+
+    razorpay_resource_id VARCHAR(100) UNIQUE NOT NULL,
+    razorpay_payment_id VARCHAR(100),
+
+    payment_method VARCHAR(50) NOT NULL,
+    amount_in_paise BIGINT NOT NULL,
+    status VARCHAR(30) NOT NULL,
+
+    purpose VARCHAR(30),
+    invoice_ids VARCHAR(500),
+
+    payment_record_id BIGINT,
+    allocations_json TEXT,
+    error_description VARCHAR(500),
+    notes VARCHAR(500)
+); -- <--- Added this semicolon
+
+CREATE INDEX idx_razorpay_txn_tenant_id ON razorpay_transaction(tenant_id);
+CREATE INDEX idx_razorpay_txn_customer_id ON razorpay_transaction(customer_id);
+CREATE INDEX idx_razorpay_txn_resource_id ON razorpay_transaction(razorpay_resource_id);
+CREATE INDEX idx_razorpay_txn_payment_id ON razorpay_transaction(razorpay_payment_id);
+
 -- Create delivery_route table
 CREATE TABLE delivery_route (
     id BIGSERIAL PRIMARY KEY,
