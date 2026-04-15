@@ -5,10 +5,11 @@ import com.ezh.Inventory.approval.entity.ApprovalResultStatus;
 import com.ezh.Inventory.approval.entity.ApprovalStatus;
 import com.ezh.Inventory.approval.entity.ApprovalType;
 import com.ezh.Inventory.approval.service.ApprovalService;
+import com.ezh.Inventory.payment.service.CreditNoteService;
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceItem;
 import com.ezh.Inventory.sales.invoice.repository.InvoiceRepository;
-import com.ezh.Inventory.sales.payment.service.PaymentService;
+import com.ezh.Inventory.payment.service.PaymentService;
 import com.ezh.Inventory.sales.returns.dto.ReturnItemRequest;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnDto;
 import com.ezh.Inventory.sales.returns.dto.SalesReturnFilter;
@@ -65,6 +66,7 @@ public class SalesReturnServiceImpl implements SalesReturnService {
     private final StockBatchRepository stockBatchRepository;
     private final AuthServiceClient authServiceClient;
     private final ApprovalService approvalService;
+    private final CreditNoteService creditNoteService;
 
     @Override
     @Transactional
@@ -267,10 +269,15 @@ public class SalesReturnServiceImpl implements SalesReturnService {
             stockService.updateStock(stockDto);
         }
 
-        paymentService.createCreditNote(
+        creditNoteService.createCreditNote(
                 invoice.getCustomerId(),
                 salesReturn.getTotalAmount(),
-                salesReturn.getReturnNumber());
+                salesReturn.getId()
+        );
+//        cr.createCreditNote(
+//                invoice.getCustomerId(),
+//                salesReturn.getTotalAmount(),
+//                salesReturn.getReturnNumber());
 
         salesReturn.setStatus(SalesReturnStatus.COMPLETED);
         salesReturnRepository.save(salesReturn);

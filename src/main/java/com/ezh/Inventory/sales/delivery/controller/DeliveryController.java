@@ -48,7 +48,7 @@ public class DeliveryController {
         return ResponseResource.success(HttpStatus.OK, response, "Delivery marked as delivered successfully");
     }
 
-    @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<List<DeliveryDto>> searchDeliveryDetails(@RequestBody DeliveryFilterDto filter) throws CommonException {
         log.info("Searching deliveries with filter: {}", filter);
         List<DeliveryDto> response = deliveryService.searchDeliveryDetails(filter);
@@ -124,5 +124,34 @@ public class DeliveryController {
                 .contentType(
                         MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(response);
+    }
+
+    /**
+     * POST /v1/delivery/{deliveryId}/reschedule
+     * Moves a SHIPPED delivery back to SCHEDULED with a new date.
+     * Use when the customer was not available at the time of delivery.
+     */
+    @PostMapping(value = "/{deliveryId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> rescheduleDelivery(
+            @PathVariable Long deliveryId,
+            @RequestBody RescheduleDeliveryDto request) throws CommonException {
+        log.info("Rescheduling delivery {} to {}", deliveryId, request.getNewDate());
+        CommonResponse<?> response = deliveryService.rescheduleDelivery(
+                deliveryId, request.getNewDate(), request.getReason());
+        return ResponseResource.success(HttpStatus.OK, response, "Delivery rescheduled successfully");
+    }
+
+    /**
+     * POST /v1/delivery/{deliveryId}/cancel?reason=...
+     * Cancels a delivery and restores stock for all items back to their batches.
+     * Allowed from any non-terminal status (PENDING, SCHEDULED, SHIPPED).
+     */
+    @PostMapping(value = "/{deliveryId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> cancelDelivery(
+            @PathVariable Long deliveryId,
+            @RequestParam(required = false, defaultValue = "No reason provided") String reason) throws CommonException {
+        log.info("Cancelling delivery {} — reason: {}", deliveryId, reason);
+        CommonResponse<?> response = deliveryService.cancelDelivery(deliveryId, reason);
+        return ResponseResource.success(HttpStatus.OK, response, "Delivery cancelled and stock restored");
     }
 }

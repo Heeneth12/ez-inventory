@@ -13,7 +13,7 @@ import java.util.List;
 
 public interface DeliveryService {
 
-    CommonResponse createDeliveryFromInvoice(Long invoiceId) throws CommonException;
+    CommonResponse<?> createDeliveryFromInvoice(Long invoiceId) throws CommonException;
 
     Page<DeliveryDto> getAllDeliveries(int page, int size, DeliveryFilterDto filter) throws CommonException;
 

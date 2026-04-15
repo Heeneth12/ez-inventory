@@ -1,9 +1,11 @@
 package com.ezh.Inventory.sales.delivery.dto;
 
+import com.ezh.Inventory.contacts.dto.AddressDto;
 import com.ezh.Inventory.employee.dto.EmployeeDto;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.entity.ShipmentType;
 import com.ezh.Inventory.sales.invoice.dto.InvoiceDto;
+import com.ezh.Inventory.utils.common.dto.UserAddressDto;
 import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import lombok.*;
 
