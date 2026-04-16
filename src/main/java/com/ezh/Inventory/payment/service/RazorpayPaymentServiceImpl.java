@@ -49,8 +49,6 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
     private final ObjectMapper objectMapper;
     private final AuthServiceClient authServiceClient;
 
-    // ── Integration Helpers ────────────────────────────────────────────────────
-
     /**
      * Fetches the current tenant's Razorpay integration via the auth service.
      * Uses the JWT from the current HTTP request to identify the tenant.
@@ -74,7 +72,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
             } catch (Exception ex) {
                 throw new CommonException(
                         "Razorpay integration not configured for this tenant. "
-                        + "Please add your Razorpay API keys in Settings → Integrations.",
+                                + "Please add your Razorpay API keys in Settings → Integrations.",
                         HttpStatus.BAD_REQUEST);
             }
         }
@@ -123,7 +121,8 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
         try {
             Map<String, Object> extra = objectMapper.readValue(
-                    integration.getExtraConfig(), new TypeReference<Map<String, Object>>() {});
+                    integration.getExtraConfig(), new TypeReference<Map<String, Object>>() {
+                    });
             return (String) extra.getOrDefault("currency", DEFAULT_CURRENCY);
         } catch (Exception e) {
             log.debug("Could not parse extraConfig for currency, defaulting to INR");
@@ -131,7 +130,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Order Creation ─────────────────────────────────────────────────────────
+    // Order Creation
 
     @Override
     public RazorpayOrderResponseDto createOrder(RazorpayOrderRequestDto request) throws CommonException {
@@ -140,9 +139,9 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         RazorpayClient client = buildClient(integration);
 
         RazorpayOrderResponseDto response = switch (request.getPaymentMethod()) {
-            case QR           -> createQrOrder(request, client, integration);
+            case QR -> createQrOrder(request, client, integration);
             case PAYMENT_LINK -> createPaymentLink(request, client, integration);
-            default           -> createStandardOrder(request, client, integration);
+            default -> createStandardOrder(request, client, integration);
         };
 
         saveTransaction(request, response);
@@ -211,7 +210,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
             linkReq.put("notify", notify);
 
             PaymentLink paymentLink = client.paymentLink.create(linkReq);
-            String linkId  = paymentLink.get("id");
+            String linkId = paymentLink.get("id");
             String shortUrl = paymentLink.get("short_url");
 
             RazorpayOrderResponseDto response = RazorpayOrderResponseDto.builder()
@@ -271,7 +270,6 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Transaction Persistence ────────────────────────────────────────────────
 
     /**
      * Saves a {@link RazorpayTransaction} record immediately after creating an order.
@@ -290,7 +288,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
                 purpose = RazorpayTransactionPurpose.ADVANCE;
             } else if (allocations.size() == 1) {
                 purpose = RazorpayTransactionPurpose.INVOICE;
-                invoiceIds = String.valueOf(allocations.get(0).getInvoiceId());
+                invoiceIds = String.valueOf(allocations.getFirst().getInvoiceId());
             } else {
                 purpose = RazorpayTransactionPurpose.MULTI_INVOICE;
                 invoiceIds = allocations.stream()
@@ -322,8 +320,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Verify & Record ────────────────────────────────────────────────────────
-
+    // Verify & Record
     @Override
     @Transactional
     public CommonResponse<?> verifyAndRecordPayment(RazorpayVerifyRequestDto request) throws CommonException {
@@ -375,7 +372,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         return result;
     }
 
-    // ── Status Poll ────────────────────────────────────────────────────────────
+    // Status Poll
 
     /**
      * Polls live status from Razorpay using the current tenant's credentials.
@@ -488,10 +485,10 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         log.info("Razorpay webhook for tenantId={}: {}", tenantId, eventType);
 
         switch (eventType) {
-            case "payment.captured"   -> handlePaymentCaptured(event);
-            case "payment.failed"     -> handlePaymentFailed(event);
-            case "payment_link.paid"  -> handlePaymentLinkPaid(event);
-            case "qr_code.credited"   -> handleQrCredited(event);
+            case "payment.captured" -> handlePaymentCaptured(event);
+            case "payment.failed" -> handlePaymentFailed(event);
+            case "payment_link.paid" -> handlePaymentLinkPaid(event);
+            case "qr_code.credited" -> handleQrCredited(event);
             default -> log.debug("Unhandled Razorpay event: {}", eventType);
         }
 
@@ -517,8 +514,8 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
     private void handlePaymentCaptured(JSONObject event) {
         JSONObject payment = event.getJSONObject("payload").getJSONObject("payment").getJSONObject("entity");
         String paymentId = payment.getString("id");
-        String orderId   = payment.getString("order_id");
-        long paise       = payment.getLong("amount");
+        String orderId = payment.getString("order_id");
+        long paise = payment.getLong("amount");
         log.info("payment.captured: paymentId={}, orderId={}, amount=Rs.{}", paymentId, orderId, paise / 100.0);
 
         transactionRepository.findByRazorpayResourceId(orderId).ifPresentOrElse(
@@ -539,7 +536,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
     private void handlePaymentLinkPaid(JSONObject event) {
         JSONObject paymentLink = event.getJSONObject("payload").getJSONObject("payment_link").getJSONObject("entity");
         String linkId = paymentLink.getString("id");
-        long paise    = paymentLink.getLong("amount");
+        long paise = paymentLink.getLong("amount");
 
         String razorpayPaymentId = null;
         try {
@@ -571,10 +568,10 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
      */
     private void handlePaymentFailed(JSONObject event) {
         JSONObject payment = event.getJSONObject("payload").getJSONObject("payment").getJSONObject("entity");
-        String paymentId  = payment.getString("id");
-        String orderId    = payment.optString("order_id", null);
-        String linkId     = payment.optString("payment_link_id", null);
-        String errorDesc  = payment.optString("error_description", "Unknown error");
+        String paymentId = payment.getString("id");
+        String orderId = payment.optString("order_id", null);
+        String linkId = payment.optString("payment_link_id", null);
+        String errorDesc = payment.optString("error_description", "Unknown error");
         log.warn("payment.failed: paymentId={}, orderId={}, linkId={}, reason={}", paymentId, orderId, linkId, errorDesc);
 
         String resourceId = orderId != null ? orderId : linkId;
@@ -600,8 +597,8 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
      */
     private void handleQrCredited(JSONObject event) {
         JSONObject qr = event.getJSONObject("payload").getJSONObject("qr_code").getJSONObject("entity");
-        String qrId   = qr.getString("id");
-        long paise    = qr.getLong("payments_amount_received");
+        String qrId = qr.getString("id");
+        long paise = qr.getLong("payments_amount_received");
         log.info("qr_code.credited: qrId={}, amount=Rs.{}", qrId, paise / 100.0);
 
         transactionRepository.findByRazorpayResourceId(qrId).ifPresentOrElse(
@@ -653,7 +650,6 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Email ──────────────────────────────────────────────────────────────────
 
     private void dispatchPaymentLinkEmail(String shortUrl, Long amountInPaise,
                                           Long customerId, String toEmail) {
@@ -690,7 +686,6 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Signature ─────────────────────────────────────────────────────────────
 
     private void verifySignature(String orderId, String paymentId, String signature,
                                  String keySecret) throws CommonException {
@@ -728,7 +723,6 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Validation ────────────────────────────────────────────────────────────
 
     private void validateOrderRequest(RazorpayOrderRequestDto request) {
         if (request.getPaymentMethod() == RazorpayPaymentMethod.UPI
@@ -741,8 +735,7 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
         }
     }
 
-    // ── Utility ───────────────────────────────────────────────────────────────
-
+    // Utility
     private long toP(BigDecimal rupees) {
         return rupees.multiply(BigDecimal.valueOf(100)).longValueExact();
     }
@@ -770,7 +763,8 @@ public class RazorpayPaymentServiceImpl implements RazorpayPaymentService {
     private List<PaymentAllocationDto> deserializeAllocations(String json) {
         if (json == null || json.isBlank()) return new ArrayList<>();
         try {
-            return objectMapper.readValue(json, new TypeReference<List<PaymentAllocationDto>>() {});
+            return objectMapper.readValue(json, new TypeReference<List<PaymentAllocationDto>>() {
+            });
         } catch (Exception e) {
             log.warn("Failed to deserialize allocations: {}", e.getMessage());
             return new ArrayList<>();

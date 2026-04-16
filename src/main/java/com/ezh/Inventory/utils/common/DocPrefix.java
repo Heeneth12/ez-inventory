@@ -17,4 +17,5 @@ public enum DocPrefix {
     PO,   // Purchase Order
     GRN,  // Goods Receipt Note
     PR,   // Purchase Return
+    RFD,  // Refund
 }

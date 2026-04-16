@@ -1,7 +1,7 @@
 package com.ezh.Inventory.utils.pdfsvc;
 
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
-import com.ezh.Inventory.sales.payment.entity.Payment;
+import com.ezh.Inventory.payment.entity.Payment;
 import com.ezh.Inventory.sales.invoice.entity.InvoiceItem;
 import com.ezh.Inventory.sales.returns.entity.SalesReturn;
 import com.ezh.Inventory.sales.returns.entity.SalesReturnItem;

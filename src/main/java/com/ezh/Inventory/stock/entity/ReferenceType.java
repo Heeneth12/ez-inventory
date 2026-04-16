@@ -4,6 +4,7 @@ public enum ReferenceType {
     GRN,                // Purchase Goods Receipt Note
     SALE,               // Sales / Invoice / POS Order
     PURCHASE_RETURN,    // Return back to supplier
+    CANCEL_DELIVERY,    // cancel delivery in sap
     SALES_RETURN,       // Customer returned goods
     TRANSFER,           // Stock movement between warehouses
     PRODUCTION,         // Raw materials consumed / finished goods produced

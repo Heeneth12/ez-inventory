@@ -67,7 +67,18 @@ public class StockServiceImpl implements StockService {
 
         // --- 2. Handle IN (Purchase, Returns) ---
         if (dto.getTransactionType() == MovementType.IN) {
-            // Note: Batch Creation happens in GoodsReceiptService, here we just update the Master Stock
+            // If a specific batch is provided (e.g. sales return), add qty back to that batch
+            if (dto.getBatchNumber() != null && !dto.getBatchNumber().isEmpty()) {
+                StockBatch batch = stockBatchRepository
+                        .findByItemIdAndBatchNumberAndWarehouseId(dto.getItemId(), dto.getBatchNumber(), dto.getWarehouseId())
+                        .orElseThrow(() -> new BadRequestException("Batch " + dto.getBatchNumber() + " not found"));
+
+                batch.setRemainingQty(batch.getRemainingQty() + qty);
+                stockBatchRepository.save(batch);
+
+                transactionPrice = batch.getBuyPrice();
+            }
+            // Note: when no batch is provided (GRN flow), batch creation is handled by GoodsReceiptService
 
             if (transactionPrice.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal currentTotalValue = currentAvgCost.multiply(BigDecimal.valueOf(beforeQty));
