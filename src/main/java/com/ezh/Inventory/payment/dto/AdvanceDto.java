@@ -4,6 +4,8 @@ import com.ezh.Inventory.payment.entity.enums.AdvanceStatus;
 import com.ezh.Inventory.payment.entity.enums.PaymentMethod;
 import com.ezh.Inventory.payment.entity.enums.RefundStatus;
 import com.ezh.Inventory.payment.entity.enums.UtilizationStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
+
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -20,6 +22,7 @@ public class AdvanceDto {
     private String advanceNumber;
     private Long customerId;
     private String customerName;
+    private UserMiniDto contactMini;
     private Date receivedDate;
     private BigDecimal amount;
     private BigDecimal availableBalance;
@@ -33,7 +36,11 @@ public class AdvanceDto {
     private List<UtilizationItem> utilizations;
     private List<RefundItem> refunds;
 
-    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class UtilizationItem {
         private Long id;
         private Long invoiceId;
@@ -43,7 +50,11 @@ public class AdvanceDto {
         private UtilizationStatus status;
     }
 
-    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RefundItem {
         private Long id;
         private String refundNumber;

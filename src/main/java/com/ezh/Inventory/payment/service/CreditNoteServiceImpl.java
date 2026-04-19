@@ -1,13 +1,11 @@
 package com.ezh.Inventory.payment.service;
 
-import com.ezh.Inventory.payment.dto.AdvanceDto;
 import com.ezh.Inventory.payment.dto.CreditNoteDto;
 import com.ezh.Inventory.payment.dto.CreditNoteRefundRequestDto;
 import com.ezh.Inventory.payment.dto.CreditNoteUtilizeDto;
 import com.ezh.Inventory.payment.entity.CreditNote;
 import com.ezh.Inventory.payment.entity.CreditNoteRefund;
 import com.ezh.Inventory.payment.entity.CreditNoteUtilization;
-import com.ezh.Inventory.payment.entity.CustomerAdvance;
 import com.ezh.Inventory.payment.entity.Payment;
 import com.ezh.Inventory.payment.entity.PaymentAllocation;
 import com.ezh.Inventory.payment.repository.CreditNoteRefundRepository;
@@ -25,6 +23,8 @@ import com.ezh.Inventory.payment.entity.enums.RefundStatus;
 import com.ezh.Inventory.payment.entity.enums.UtilizationStatus;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.*;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +53,7 @@ public class CreditNoteServiceImpl implements CreditNoteService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
+    private final AuthServiceClient authServiceClient;
 
     // CREATE CREDIT NOTE (called internally by SalesReturn service)
     @Override
@@ -80,16 +83,23 @@ public class CreditNoteServiceImpl implements CreditNoteService {
                 .build();
     }
 
-
     @Override
-    public Page<CreditNoteDto> getAllCreditNote(Integer page, Integer size, CommonFilter dto) throws CommonException {
+    public Page<CreditNoteDto> getAllCreditNote(Integer page, Integer size, CommonFilter dto)
+            throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<CreditNote> creditNotes  = creditNoteRepository.findByTenantId(tenantId, pageable);
+        Page<CreditNote> creditNotes = creditNoteRepository.findByTenantId(tenantId, pageable);
 
-        return creditNotes.map(creditNote -> mapToDto(creditNote, false));
+        List<Long> customerIds = creditNotes.getContent().stream()
+                .map(CreditNote::getCustomerId).distinct().toList();
+
+        Map<Long, UserMiniDto> customerMap = customerIds.isEmpty()
+                ? new HashMap<>()
+                : authServiceClient.getBulkUserDetails(customerIds);
+
+        return creditNotes.map(creditNote -> mapToDto(creditNote, customerMap, false));
     }
 
     // UTILIZE — apply CN to an invoice
@@ -103,7 +113,8 @@ public class CreditNoteServiceImpl implements CreditNoteService {
 
         if (creditNote.getStatus() == CreditNoteStatus.CANCELLED
                 || creditNote.getStatus() == CreditNoteStatus.FULLY_UTILIZED) {
-            throw new BadRequestException("Credit Note " + creditNote.getCreditNoteNumber() + " is not available");
+            throw new BadRequestException(
+                    "Credit Note " + creditNote.getCreditNoteNumber() + " is not available");
         }
 
         if (creditNote.getAvailableBalance().compareTo(dto.getAmount()) < 0) {
@@ -115,7 +126,8 @@ public class CreditNoteServiceImpl implements CreditNoteService {
                 .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
 
         if (dto.getAmount().compareTo(invoice.getBalance()) > 0) {
-            throw new BadRequestException("Amount exceeds invoice balance. Invoice due: " + invoice.getBalance());
+            throw new BadRequestException(
+                    "Amount exceeds invoice balance. Invoice due: " + invoice.getBalance());
         }
 
         // Create utilization record
@@ -136,8 +148,7 @@ public class CreditNoteServiceImpl implements CreditNoteService {
         creditNote.setStatus(
                 creditNote.getAvailableBalance().compareTo(BigDecimal.ZERO) == 0
                         ? CreditNoteStatus.FULLY_UTILIZED
-                        : CreditNoteStatus.PARTIALLY_UTILIZED
-        );
+                        : CreditNoteStatus.PARTIALLY_UTILIZED);
         creditNoteRepository.save(creditNote);
 
         // ── Revenue ledger ────────────────────────────────────────────────────────
@@ -223,7 +234,8 @@ public class CreditNoteServiceImpl implements CreditNoteService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
         CreditNoteRefund refund = refundRepository.findByIdAndTenantId(refundId, tenantId)
-                .orElseThrow(() -> new CommonException("Credit note refund not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CommonException("Credit note refund not found",
+                        HttpStatus.NOT_FOUND));
 
         if (refund.getStatus() != RefundStatus.PENDING) {
             throw new BadRequestException("Refund is already " + refund.getStatus());
@@ -245,16 +257,22 @@ public class CreditNoteServiceImpl implements CreditNoteService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         CreditNote cn = creditNoteRepository.findByIdAndTenantId(creditNoteId, tenantId)
                 .orElseThrow(() -> new CommonException("Credit Note not found", HttpStatus.NOT_FOUND));
-        return mapToDto(cn, true);
+
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(cn.getCustomerId()));
+
+        return mapToDto(cn, customerMap, true);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CreditNoteDto> getCreditNotesByCustomer(Long customerId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(List.of(customerId));
+
         return creditNoteRepository.findByCustomerIdAndTenantIdOrderByIssueDateDesc(customerId, tenantId)
                 .stream()
-                .map(cn -> mapToDto(cn, false))
+                .map(cn -> mapToDto(cn, customerMap, false))
                 .collect(Collectors.toList());
     }
 
@@ -271,10 +289,11 @@ public class CreditNoteServiceImpl implements CreditNoteService {
         invoiceRepository.save(invoice);
     }
 
-    private CreditNoteDto mapToDto(CreditNote cn, boolean includeDetails) {
+    private CreditNoteDto mapToDto(CreditNote cn, Map<Long, UserMiniDto> customerMap, boolean includeDetails) {
         CreditNoteDto dto = CreditNoteDto.builder()
                 .id(cn.getId())
                 .creditNoteNumber(cn.getCreditNoteNumber())
+                .contactMini(customerMap.get(cn.getCustomerId()))
                 .customerId(cn.getCustomerId())
                 .sourceReturnId(cn.getSourceReturnId())
                 .issueDate(cn.getIssueDate())

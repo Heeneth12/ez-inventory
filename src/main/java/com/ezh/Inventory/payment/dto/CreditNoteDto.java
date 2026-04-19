@@ -4,6 +4,8 @@ import com.ezh.Inventory.payment.entity.enums.CreditNoteStatus;
 import com.ezh.Inventory.payment.entity.enums.PaymentMethod;
 import com.ezh.Inventory.payment.entity.enums.RefundStatus;
 import com.ezh.Inventory.payment.entity.enums.UtilizationStatus;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
+
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -20,7 +22,8 @@ public class CreditNoteDto {
     private String creditNoteNumber;
     private Long customerId;
     private String customerName;
-    private Long sourceReturnId;   // the SalesReturn that created this
+    private UserMiniDto contactMini;
+    private Long sourceReturnId; // the SalesReturn that created this
     private Date issueDate;
     private BigDecimal amount;
     private BigDecimal availableBalance;
@@ -31,7 +34,11 @@ public class CreditNoteDto {
     private List<UtilizationItem> utilizations;
     private List<RefundItem> refunds;
 
-    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class UtilizationItem {
         private Long id;
         private Long invoiceId;
@@ -41,7 +48,11 @@ public class CreditNoteDto {
         private UtilizationStatus status;
     }
 
-    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class RefundItem {
         private Long id;
         private String refundNumber;

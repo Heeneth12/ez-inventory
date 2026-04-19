@@ -28,6 +28,8 @@ import com.ezh.Inventory.utils.common.DocumentNumberUtil;
 import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.Status;
+import com.ezh.Inventory.utils.common.client.AuthServiceClient;
+import com.ezh.Inventory.utils.common.dto.UserMiniDto;
 import com.ezh.Inventory.utils.exception.BadRequestException;
 import com.ezh.Inventory.utils.exception.CommonException;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,6 +59,7 @@ public class AdvanceServiceImpl implements AdvanceService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
+    private final AuthServiceClient authServiceClient;
 
     @Override
     @Transactional
@@ -92,9 +97,15 @@ public class AdvanceServiceImpl implements AdvanceService {
 
         Page<CustomerAdvance> advancePage = advanceRepository.findByTenantId(tenantId, pageable);
 
-        return advancePage.map(advance -> mapToDto(advance, false));
-    }
+        List<Long> customerIds = advancePage.getContent().stream()
+                .map(CustomerAdvance::getCustomerId).distinct().toList();
 
+        Map<Long, UserMiniDto> customerMap = customerIds.isEmpty()
+                ? new HashMap<>()
+                : authServiceClient.getBulkUserDetails(customerIds);
+
+        return advancePage.map(advance -> mapToDto(advance, customerMap, false));
+    }
 
     @Override
     @Transactional
@@ -249,16 +260,20 @@ public class AdvanceServiceImpl implements AdvanceService {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
         CustomerAdvance advance = advanceRepository.findByIdAndTenantId(advanceId, tenantId)
                 .orElseThrow(() -> new CommonException("Advance not found", HttpStatus.NOT_FOUND));
-        return mapToDto(advance, true);
+        List<Long> customerIds = List.of(advance.getCustomerId());
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(customerIds);
+        return mapToDto(advance, customerMap, true);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AdvanceDto> getAdvancesByCustomer(Long customerId) throws CommonException {
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
+        List<Long> customerIds = List.of(customerId);
+        Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(customerIds);
         return advanceRepository.findByCustomerIdAndTenantIdOrderByReceivedDateDesc(customerId, tenantId)
                 .stream()
-                .map(a -> mapToDto(a, false))
+                .map(a -> mapToDto(a, customerMap, false))
                 .collect(Collectors.toList());
     }
 
@@ -275,11 +290,13 @@ public class AdvanceServiceImpl implements AdvanceService {
         invoiceRepository.save(invoice);
     }
 
-    private AdvanceDto mapToDto(CustomerAdvance advance, boolean includeDetails) {
+    private AdvanceDto mapToDto(CustomerAdvance advance, Map<Long, UserMiniDto> customerMap,
+                                boolean includeDetails) {
         AdvanceDto dto = AdvanceDto.builder()
                 .id(advance.getId())
                 .advanceNumber(advance.getAdvanceNumber())
                 .customerId(advance.getCustomerId())
+                .contactMini(customerMap.get(advance.getCustomerId()))
                 .receivedDate(advance.getReceivedDate())
                 .amount(advance.getAmount())
                 .availableBalance(advance.getAvailableBalance())
