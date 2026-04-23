@@ -248,6 +248,7 @@ public class PaymentServiceImpl implements PaymentService {
             allocations = payment.getAllocations().stream()
                     .map(a -> PaymentDto.AllocationItem.builder()
                             .invoiceId(a.getInvoiceId())
+                            .invoiceNumber(invoiceRepository.findInvoiceNumberById(a.getInvoiceId()))
                             .allocatedAmount(a.getAllocatedAmount())
                             .allocationDate(a.getAllocationDate())
                             .build())

@@ -52,12 +52,12 @@ public class PaymentController {
         return ResponseResource.success(HttpStatus.OK, paymentService.getAllPayments(filter, page, size), "Payments fetched");
     }
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<PaymentDto> getPayment(@RequestParam Long paymentId) throws CommonException {
-        return ResponseResource.success(HttpStatus.OK, paymentService.getPayment(paymentId), "Payment fetched");
+    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<PaymentDto> getPayment(@PathVariable Long id) throws CommonException {
+        return ResponseResource.success(HttpStatus.OK, paymentService.getPayment(id), "Payment fetched");
     }
 
-    @GetMapping(value = "/{invoiceId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/invoice/{invoiceId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<List<InvoicePaymentHistoryDto>> getPaymentsByInvoice(@PathVariable Long invoiceId) throws CommonException {
         return ResponseResource.success(HttpStatus.OK, paymentService.getPaymentsByInvoiceId(invoiceId), "Payment history fetched");
     }

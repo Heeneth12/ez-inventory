@@ -20,6 +20,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Boolean existsByInvoiceNumber(String invoiceNumber);
 
+    @Query("SELECT i.invoiceNumber FROM Invoice i WHERE i.id = :invoiceId")
+    String findInvoiceNumberById(@Param("invoiceId") Long invoiceId);
+
     Optional<Invoice> findByIdAndTenantId(Long id, Long tenantId);
 
     Page<Invoice> findByTenantId(Long tenantId, Pageable pageable);
