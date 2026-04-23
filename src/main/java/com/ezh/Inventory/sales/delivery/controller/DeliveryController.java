@@ -1,7 +1,6 @@
 package com.ezh.Inventory.sales.delivery.controller;
 
 import com.ezh.Inventory.sales.delivery.dto.*;
-import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -14,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -41,12 +41,6 @@ public class DeliveryController {
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully");
     }
 
-    @PostMapping(value = "/{deliveryId}/delivered", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> markAsDelivered(@PathVariable Long deliveryId) throws CommonException {
-        log.info("Marking delivery {} as delivered", deliveryId);
-        CommonResponse response = deliveryService.markAsDelivered(deliveryId);
-        return ResponseResource.success(HttpStatus.OK, response, "Delivery marked as delivered successfully");
-    }
 
     @PostMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<List<DeliveryDto>> searchDeliveryDetails(@RequestBody DeliveryFilterDto filter) throws CommonException {
@@ -55,11 +49,13 @@ public class DeliveryController {
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully based on search criteria");
     }
 
-    @PostMapping(value = "/{id}/status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(@PathVariable Long id,
-                                                                    @RequestParam ShipmentStatus status) throws CommonException {
-        log.info("Update invoices with status: {}", status);
-        CommonResponse<?> response = deliveryService.updateDeliveryStatus(id, status);
+    @PostMapping(value = "/{id}/status", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(
+            @PathVariable Long id,
+            @ModelAttribute DeliveryStatusUpdateRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws CommonException {
+        log.info("Updating delivery {} to status: {}", id, request.getStatus());
+        CommonResponse<?> response = deliveryService.updateDeliveryStatus(id, request, file);
         return ResponseResource.success(HttpStatus.OK, response, "Delivery status updated successfully");
     }
 
@@ -126,32 +122,4 @@ public class DeliveryController {
                 .body(response);
     }
 
-    /**
-     * POST /v1/delivery/{deliveryId}/reschedule
-     * Moves a SHIPPED delivery back to SCHEDULED with a new date.
-     * Use when the customer was not available at the time of delivery.
-     */
-    @PostMapping(value = "/{deliveryId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse<?>> rescheduleDelivery(
-            @PathVariable Long deliveryId,
-            @RequestBody RescheduleDeliveryDto request) throws CommonException {
-        log.info("Rescheduling delivery {} to {}", deliveryId, request.getNewDate());
-        CommonResponse<?> response = deliveryService.rescheduleDelivery(
-                deliveryId, request.getNewDate(), request.getReason());
-        return ResponseResource.success(HttpStatus.OK, response, "Delivery rescheduled successfully");
-    }
-
-    /**
-     * POST /v1/delivery/{deliveryId}/cancel?reason=...
-     * Cancels a delivery and restores stock for all items back to their batches.
-     * Allowed from any non-terminal status (PENDING, SCHEDULED, SHIPPED).
-     */
-    @PostMapping(value = "/{deliveryId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse<?>> cancelDelivery(
-            @PathVariable Long deliveryId,
-            @RequestParam(required = false, defaultValue = "No reason provided") String reason) throws CommonException {
-        log.info("Cancelling delivery {} — reason: {}", deliveryId, reason);
-        CommonResponse<?> response = deliveryService.cancelDelivery(deliveryId, reason);
-        return ResponseResource.success(HttpStatus.OK, response, "Delivery cancelled and stock restored");
-    }
 }

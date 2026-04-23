@@ -64,6 +64,9 @@ public class Delivery extends CommonSerializable {
     @Column(name = "remarks")
     private String remarks;
 
+    @Column(name = "attachment_uuid", length = 100)
+    private String attachmentUuid;
+
     @Builder.Default
     @OneToMany(mappedBy = "delivery", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DeliveryItem> items = new ArrayList<>();

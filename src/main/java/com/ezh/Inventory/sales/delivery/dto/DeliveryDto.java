@@ -34,4 +34,5 @@ public class DeliveryDto {
     private String deliveryAddress;
     private String contactPerson;
     private String contactPhone;
+    private String attachmentUuid;
 }

@@ -28,10 +28,16 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.ezh.Inventory.common.storage.dto.FileRecordResponse;
+import com.ezh.Inventory.common.storage.dto.FileUploadRequest;
+import com.ezh.Inventory.common.storage.entity.FileReferenceType;
+import com.ezh.Inventory.common.storage.entity.FileType;
+import com.ezh.Inventory.common.storage.service.FileStorageService;
 import com.ezh.Inventory.items.entity.Item;
 import com.ezh.Inventory.items.repository.ItemRepository;
 import com.ezh.Inventory.stock.dto.StockUpdateDto;
@@ -54,6 +60,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockService stockService;
+    private final FileStorageService fileStorageService;
 
 
     @Override
@@ -82,14 +89,15 @@ public class DeliveryServiceImpl implements DeliveryService {
             invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
             invoiceRepository.save(invoice);
 
-        } else {
+        } else if (dto.getScheduledDate() != null) {
             // Queue for Dispatch
             initialStatus = ShipmentStatus.SCHEDULED; // Goes to "Todo List"
             // If user provided a specific date, use it, else default to today
             scheduledDate = dto.getScheduledDate();
             //deliveredDate = new Date();
             //scheduledDate = new Date();
-
+        } else {
+            initialStatus = ShipmentStatus.PENDING;
         }
 
         // 2. Create Header
@@ -124,67 +132,6 @@ public class DeliveryServiceImpl implements DeliveryService {
 
         deliveryItemRepository.saveAll(items);
         log.info("Delivery Record Created: {} | Status: {}", delivery.getDeliveryNumber(), initialStatus);
-    }
-
-    @Override
-    @Transactional
-    public CommonResponse markAsShipped(Long deliveryId, String trackingNumber) {
-        Delivery delivery = deliveryRepository.findById(deliveryId)
-                .orElseThrow(() -> new RuntimeException("Delivery not found"));
-
-        if (delivery.getStatus() == ShipmentStatus.DELIVERED) {
-            throw new CommonException("Already Delivered", HttpStatus.NOT_FOUND);
-        }
-
-        delivery.setStatus(ShipmentStatus.SHIPPED);
-        delivery.setShippedDate(new Date());
-        // delivery.setTrackingNumber(trackingNumber); // Add this field to Entity if needed
-        deliveryRepository.save(delivery);
-
-        return CommonResponse.builder().message("Order Shipped").build();
-    }
-
-    @Override
-    @Transactional
-    public CommonResponse<?> markAsDelivered(Long deliveryId) {
-
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
-        Delivery delivery = deliveryRepository.findById(deliveryId)
-                .orElseThrow(() -> new RuntimeException("Delivery not found"));
-
-        Invoice invoice = invoiceRepository.findByIdAndTenantId(delivery.getInvoice().getId(), tenantId)
-                .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
-
-        invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
-        invoice.setStatus(InvoiceStatus.ISSUED);
-        invoiceRepository.save(invoice);
-
-        delivery.setStatus(ShipmentStatus.DELIVERED);
-        delivery.setDeliveredDate(new Date());
-        deliveryRepository.save(delivery);
-
-        return CommonResponse.builder().message("Order Delivered Successfully").build();
-    }
-
-    @Override
-    @Transactional
-    public CommonResponse<?> createDeliveryFromInvoice(Long invoiceId) throws CommonException {
-
-        Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
-
-        // Validate invoice is not cancelled
-        if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
-            throw new CommonException("Cannot create delivery for cancelled invoice", HttpStatus.BAD_REQUEST);
-        }
-
-
-        return CommonResponse
-                .builder()
-                .message("")
-                .build();
-
     }
 
     @Override
@@ -239,7 +186,7 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     @Transactional
-    public CommonResponse<?> updateDeliveryStatus(Long id, ShipmentStatus status) throws CommonException {
+    public CommonResponse<?> updateDeliveryStatus(Long id, DeliveryStatusUpdateRequest request, MultipartFile file) throws CommonException {
 
         Long tenantId = UserContextUtil.getTenantIdOrThrow();
 
@@ -248,18 +195,16 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .orElseThrow(() -> new CommonException("Delivery not found", HttpStatus.NOT_FOUND));
 
         Invoice invoice = invoiceRepository.findById(delivery.getInvoice().getId())
-                .orElseThrow(() -> new CommonException("", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CommonException("Invoice not found", HttpStatus.NOT_FOUND));
 
+        ShipmentStatus status = request.getStatus();
+        String reason = request.getReason() != null ? request.getReason() : "";
         ShipmentStatus currentStatus = delivery.getStatus();
 
-        //Same status → no update
         if (currentStatus == status) {
-            return CommonResponse.builder()
-                    .message("Status already updated")
-                    .build();
+            return CommonResponse.builder().message("Status already set to " + status).build();
         }
 
-        //Validate transition
         if (!isValidTransition(currentStatus, status)) {
             throw new CommonException(
                     "Invalid status transition from " + currentStatus + " to " + status,
@@ -267,14 +212,58 @@ public class DeliveryServiceImpl implements DeliveryService {
             );
         }
 
-        if (status.equals(ShipmentStatus.SHIPPED)) {
-            delivery.setShippedDate(new Date());
-        }
-
-        if (status.equals(ShipmentStatus.DELIVERED)) {
-            delivery.setDeliveredDate(new Date());
-            invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
-            invoice.setStatus(InvoiceStatus.ISSUED);
+        switch (status) {
+            case SCHEDULED -> {
+                Date scheduledDate = request.getScheduledDate() != null ? request.getScheduledDate() : delivery.getScheduledDate();
+                delivery.setScheduledDate(scheduledDate);
+                String existingRemarks = delivery.getRemarks() != null ? delivery.getRemarks() : "";
+                if (!reason.isBlank()) {
+                    delivery.setRemarks(existingRemarks + " | Rescheduled: " + reason);
+                }
+            }
+            case SHIPPED -> delivery.setShippedDate(new Date());
+            case DELIVERED -> {
+                if (file != null && !file.isEmpty()) {
+                    FileUploadRequest uploadRequest = new FileUploadRequest();
+                    uploadRequest.setReferenceId(delivery.getId().toString());
+                    uploadRequest.setReferenceType(FileReferenceType.DELIVERY);
+                    uploadRequest.setFileType(FileType.DELIVERY_PROOF_PHOTO);
+                    uploadRequest.setTenantId(tenantId.toString());
+                    uploadRequest.setDescription("Proof of delivery for " + delivery.getDeliveryNumber());
+                    FileRecordResponse uploaded = fileStorageService.uploadFile(file, uploadRequest);
+                    delivery.setAttachmentUuid(uploaded.getUuid());
+                }
+                delivery.setDeliveredDate(new Date());
+                invoice.setDeliveryStatus(InvoiceDeliveryStatus.DELIVERED);
+                invoice.setStatus(InvoiceStatus.ISSUED);
+            }
+            case CANCELLED -> {
+                if (delivery.getStatus() == ShipmentStatus.DELIVERED) {
+                    throw new CommonException("Cannot cancel a delivery that is already delivered", HttpStatus.BAD_REQUEST);
+                }
+                for (DeliveryItem item : delivery.getItems()) {
+                    if (item.getBatchNumber() == null || item.getBatchNumber().isBlank()) {
+                        log.warn("Delivery item {} has no batch number — skipping stock restoration", item.getItemId());
+                        continue;
+                    }
+                    StockUpdateDto stockDto = StockUpdateDto.builder()
+                            .itemId(item.getItemId())
+                            .warehouseId(invoice.getWarehouseId())
+                            .quantity(item.getQuantity())
+                            .transactionType(MovementType.IN)
+                            .referenceType(ReferenceType.CANCEL_DELIVERY)
+                            .referenceId(delivery.getId())
+                            .batchNumber(item.getBatchNumber())
+                            .remarks("Stock restored — Delivery " + delivery.getDeliveryNumber() + " cancelled: " + reason)
+                            .build();
+                    stockService.updateStock(stockDto);
+                }
+                String existingRemarks = delivery.getRemarks() != null ? delivery.getRemarks() : "";
+                delivery.setRemarks(existingRemarks + " | Cancelled: " + reason);
+                invoice.setDeliveryStatus(InvoiceDeliveryStatus.CANCEL_DELIVERY);
+                log.info("Delivery {} cancelled. Stock restored for {} items.", delivery.getDeliveryNumber(), delivery.getItems().size());
+            }
+            default -> throw new CommonException("Unsupported status: " + status, HttpStatus.BAD_REQUEST);
         }
 
         delivery.setStatus(status);
@@ -282,7 +271,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         invoiceRepository.save(invoice);
 
         return CommonResponse.builder()
-                .message("Delivery status updated successfully")
+                .message("Delivery status updated to " + status)
                 .build();
     }
 
@@ -312,82 +301,6 @@ public class DeliveryServiceImpl implements DeliveryService {
         Map<Long, UserMiniDto> customerMap = authServiceClient.getBulkUserDetails(customerIds, true);
 
         return deliveries.stream().map(dev -> mapToDto(dev, customerMap, true)).toList();
-    }
-
-
-    @Override
-    @Transactional
-    public CommonResponse<?> rescheduleDelivery(Long deliveryId, Date newDate, String reason) {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
-        Delivery delivery = deliveryRepository.findByIdAndTenantId(deliveryId, tenantId)
-                .orElseThrow(() -> new CommonException("Delivery not found", HttpStatus.NOT_FOUND));
-
-        // Update to Scheduled and set the new date
-        delivery.setStatus(ShipmentStatus.SCHEDULED);
-        delivery.setScheduledDate(newDate);
-        String existingRemarks = delivery.getRemarks() != null ? delivery.getRemarks() : "";
-        delivery.setRemarks(existingRemarks + " | Rescheduled: " + reason);
-
-        deliveryRepository.save(delivery);
-
-        return CommonResponse.builder()
-                .status(Status.SUCCESS)
-                .message("Delivery rescheduled to " + newDate)
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public CommonResponse<?> cancelDelivery(Long deliveryId, String reason) throws CommonException {
-        Long tenantId = UserContextUtil.getTenantIdOrThrow();
-
-        Delivery delivery = deliveryRepository.findByIdAndTenantId(deliveryId, tenantId)
-                .orElseThrow(() -> new CommonException("Delivery not found", HttpStatus.NOT_FOUND));
-
-        if (delivery.getStatus() == ShipmentStatus.DELIVERED) {
-            throw new CommonException("Cannot cancel a delivery that is already delivered", HttpStatus.BAD_REQUEST);
-        }
-        if (delivery.getStatus() == ShipmentStatus.CANCELLED) {
-            throw new CommonException("Delivery is already cancelled", HttpStatus.BAD_REQUEST);
-        }
-
-        Invoice invoice = delivery.getInvoice();
-
-        // Restore stock for every item in this delivery
-        for (DeliveryItem item : delivery.getItems()) {
-            if (item.getBatchNumber() == null || item.getBatchNumber().isBlank()) {
-                log.warn("Delivery item {} has no batch number — skipping stock restoration", item.getItemId());
-                continue;
-            }
-            StockUpdateDto stockDto = StockUpdateDto.builder()
-                    .itemId(item.getItemId())
-                    .warehouseId(invoice.getWarehouseId())
-                    .quantity(item.getQuantity())
-                    .transactionType(MovementType.IN)
-                    .referenceType(ReferenceType.CANCEL_DELIVERY)
-                    .referenceId(delivery.getId())
-                    .batchNumber(item.getBatchNumber())
-                    .remarks("Stock restored — Delivery " + delivery.getDeliveryNumber() + " cancelled: " + reason)
-                    .build();
-            stockService.updateStock(stockDto);
-        }
-
-        String existingRemarks = delivery.getRemarks() != null ? delivery.getRemarks() : "";
-        delivery.setStatus(ShipmentStatus.CANCELLED);
-        delivery.setRemarks(existingRemarks + " | Cancelled: " + reason);
-
-        invoice.setDeliveryStatus(InvoiceDeliveryStatus.CANCEL_DELIVERY);
-
-        deliveryRepository.save(delivery);
-        invoiceRepository.save(invoice);
-
-        log.info("Delivery {} cancelled. Stock restored for {} items.", delivery.getDeliveryNumber(), delivery.getItems().size());
-
-        return CommonResponse.builder()
-                .status(Status.SUCCESS)
-                .message("Delivery cancelled and stock restored successfully")
-                .build();
     }
 
 
@@ -625,6 +538,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .contactPerson(delivery.getContactPerson())
                 .contactPhone(delivery.getContactPhone())
                 .remarks(delivery.getRemarks())
+                .attachmentUuid(delivery.getAttachmentUuid())
                 .build();
     }
 
