@@ -50,6 +50,10 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "https://www.ez-hub.in",
                 "https://app.ez-hub.in",
+                "https://www.kubee.in",
+                "https://kubee.in",
+                "https://www.app.kubee.in",
+                "https://app.kubee.in",
                 "http://localhost:3000",
                 "http://localhost:4200"
         ));
