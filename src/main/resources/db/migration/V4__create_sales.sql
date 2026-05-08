@@ -3,7 +3,9 @@ CREATE TABLE sales_order (
     id BIGSERIAL PRIMARY KEY,
     uuid VARCHAR(36) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(50),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(50),
     is_deleted BOOLEAN DEFAULT false,
     tenant_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL,
@@ -229,6 +231,7 @@ CREATE TABLE delivery (
     contact_phone VARCHAR(20),
     remarks TEXT,
     route_id BIGINT,
+    attachment_uuid VARCHAR(100),
     CONSTRAINT fk_delivery_invoice FOREIGN KEY (invoice_id) REFERENCES invoice(id) ON DELETE RESTRICT,
     CONSTRAINT fk_delivery_route FOREIGN KEY (route_id) REFERENCES delivery_route(id) ON DELETE SET NULL
 );

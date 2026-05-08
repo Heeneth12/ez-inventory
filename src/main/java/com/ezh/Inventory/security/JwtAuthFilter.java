@@ -36,21 +36,38 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             // Validate token and check if it's an access token
             if (jwtTokenProvider.validateToken(token) && jwtTokenProvider.isAccessToken(token)) {
+                // Extract Long IDs
                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
                 Long tenantId = jwtTokenProvider.getTenantIdFromToken(token);
+
+                // Extract UUIDs (Assuming your JwtTokenProvider has these methods)
+                String userUuid = jwtTokenProvider.getUserUuidFromToken(token);
+                String tenantUuid = jwtTokenProvider.getTenantUuidFromToken(token);
+
                 String email = jwtTokenProvider.getEmailFromToken(token);
                 String userType = jwtTokenProvider.getUserTypeFromToken(token);
                 String roles = jwtTokenProvider.getRolesFromToken(token);
 
-                // Populate UserContext for use throughout the request
+                // Populate UserContext (ensure UserContext class is updated with these fields)
                 userContext.setUserId(userId);
+                userContext.setUserUuid(userUuid);
                 userContext.setEmail(email);
                 userContext.setTenantId(tenantId);
+                userContext.setTenantUuid(tenantUuid);
                 userContext.setUserType(userType);
                 userContext.setRoles(roles);
 
-                // Create authentication object
-                JwtAuthentication authentication = new JwtAuthentication(userId, email, tenantId, userType, roles);
+                // Create authentication object with the new UUID parameters
+                JwtAuthentication authentication = new JwtAuthentication(
+                        userId,
+                        userUuid,
+                        email,
+                        tenantId,
+                        tenantUuid,
+                        userType,
+                        roles
+                );
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {

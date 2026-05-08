@@ -12,6 +12,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
@@ -30,17 +31,21 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Generate Access Token
+     * Generate Access Token - Now includes UUIDs
      */
-    public String generateAccessToken(Long userId, String email, Long tenantId) {
+    public String generateAccessToken(Long userId, UUID userUuid, String email, Long tenantId, UUID tenantUuid, String userType, String roles) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
 
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))
                 .addClaims(Map.of(
+                        "userUuid", userUuid.toString(),
                         "email", email,
                         "tenantId", String.valueOf(tenantId),
+                        "tenantUuid", tenantUuid.toString(),
+                        "userType", userType,
+                        "roles", roles,
                         "type", "ACCESS"
                 ))
                 .setIssuedAt(now)
@@ -65,13 +70,23 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    // Extraction Methods
+
     public Long getUserIdFromToken(String token) {
         return Long.valueOf(getClaims(token).getSubject());
+    }
+
+    public String getUserUuidFromToken(String token) {
+        return getClaims(token).get("userUuid", String.class);
     }
 
     public Long getTenantIdFromToken(String token) {
         String tenantId = getClaims(token).get("tenantId", String.class);
         return tenantId != null ? Long.valueOf(tenantId) : null;
+    }
+
+    public String getTenantUuidFromToken(String token) {
+        return getClaims(token).get("tenantUuid", String.class);
     }
 
     public String getEmailFromToken(String token) {
@@ -81,6 +96,16 @@ public class JwtTokenProvider {
     public String getTokenType(String token) {
         return getClaims(token).get("type", String.class);
     }
+
+    public String getUserTypeFromToken(String token) {
+        return getClaims(token).get("userType", String.class);
+    }
+
+    public String getRolesFromToken(String token) {
+        return getClaims(token).get("roles", String.class);
+    }
+
+    // Validation Methods
 
     public boolean isTokenExpired(String token) {
         try {
@@ -114,14 +139,6 @@ public class JwtTokenProvider {
         } catch (JwtException e) {
             return false;
         }
-    }
-
-    public String getUserTypeFromToken(String token) {
-        return getClaims(token).get("userType", String.class);
-    }
-
-    public String getRolesFromToken(String token) {
-        return getClaims(token).get("roles", String.class);
     }
 
     private Claims getClaims(String token) {

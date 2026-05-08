@@ -15,6 +15,7 @@ import com.ezh.Inventory.sales.order.entity.SalesOrderStatus;
 import com.ezh.Inventory.sales.order.repository.SalesConversionDateProjection;
 import com.ezh.Inventory.sales.order.repository.SalesOrderRepository;
 import com.ezh.Inventory.sales.order.utils.SalesOrderExportUtils;
+import com.ezh.Inventory.security.UserContext;
 import com.ezh.Inventory.utils.UserContextUtil;
 import com.ezh.Inventory.utils.common.CommonFilter;
 import com.ezh.Inventory.utils.common.CommonResponse;
@@ -50,6 +51,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final ItemRepository itemRepository;
     private final ApprovalService approvalService;
     private final AuthServiceClient authServiceClient;
+    private final UserContext userContext;
 
     @Override
     @Transactional
@@ -67,6 +69,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setSource(SalesOrderSource.SALES_TEAM);
         salesOrder.setRemarks(dto.getRemarks());
         salesOrder.setItems(new ArrayList<>());
+        salesOrder.setCreatedBy(UserContextUtil.getUserUuid());
 
         //Process Items & Calculate Financials (The Unified Pipeline)
         processAndCalculateFinancials(salesOrder, dto);
@@ -328,6 +331,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
         //Apply the new status and save
         so.setStatus(newStatus);
+        so.setUpdatedBy(UserContextUtil.getUserUuid());
         salesOrderRepository.save(so);
 
         return CommonResponse.builder()
