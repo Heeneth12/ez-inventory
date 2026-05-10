@@ -1,7 +1,6 @@
 package com.ezh.Inventory.sales.delivery.controller;
 
 import com.ezh.Inventory.sales.delivery.dto.*;
-import com.ezh.Inventory.sales.delivery.entity.ShipmentStatus;
 import com.ezh.Inventory.sales.delivery.service.DeliveryService;
 import com.ezh.Inventory.utils.common.CommonResponse;
 import com.ezh.Inventory.utils.common.ResponseResource;
@@ -14,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -41,25 +41,21 @@ public class DeliveryController {
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully");
     }
 
-    @PostMapping(value = "/{deliveryId}/delivered", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse> markAsDelivered(@PathVariable Long deliveryId) throws CommonException {
-        log.info("Marking delivery {} as delivered", deliveryId);
-        CommonResponse response = deliveryService.markAsDelivered(deliveryId);
-        return ResponseResource.success(HttpStatus.OK, response, "Delivery marked as delivered successfully");
-    }
 
-    @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseResource<List<DeliveryDto>> searchDeliveryDetails(@RequestBody DeliveryFilterDto filter) throws CommonException {
         log.info("Searching deliveries with filter: {}", filter);
         List<DeliveryDto> response = deliveryService.searchDeliveryDetails(filter);
         return ResponseResource.success(HttpStatus.OK, response, "Deliveries fetched successfully based on search criteria");
     }
 
-    @PostMapping(value = "/{id}/status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(@PathVariable Long id,
-                                                                    @RequestParam ShipmentStatus status) throws CommonException {
-        log.info("Update invoices with status: {}", status);
-        CommonResponse<?> response = deliveryService.updateDeliveryStatus(id, status);
+    @PostMapping(value = "/{id}/status", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseResource<CommonResponse<?>> updateDeliveryStatus(
+            @PathVariable Long id,
+            @ModelAttribute DeliveryStatusUpdateRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws CommonException {
+        log.info("Updating delivery {} to status: {}", id, request.getStatus());
+        CommonResponse<?> response = deliveryService.updateDeliveryStatus(id, request, file);
         return ResponseResource.success(HttpStatus.OK, response, "Delivery status updated successfully");
     }
 
@@ -125,4 +121,5 @@ public class DeliveryController {
                         MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(response);
     }
+
 }

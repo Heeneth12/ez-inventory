@@ -1,7 +1,7 @@
 package com.ezh.Inventory.sales.returns.entity;
 
 import com.ezh.Inventory.sales.invoice.entity.Invoice;
-import com.ezh.Inventory.sales.payment.entity.Payment;
+import com.ezh.Inventory.payment.entity.Payment;
 import com.ezh.Inventory.utils.common.CommonSerializable;
 import jakarta.persistence.*;
 import lombok.*;

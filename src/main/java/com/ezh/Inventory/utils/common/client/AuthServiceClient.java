@@ -1,9 +1,7 @@
 package com.ezh.Inventory.utils.common.client;
 
 import com.ezh.Inventory.utils.common.ExternalApiResponse;
-import com.ezh.Inventory.utils.common.dto.TenantDto;
-import com.ezh.Inventory.utils.common.dto.UserDto;
-import com.ezh.Inventory.utils.common.dto.UserMiniDto;
+import com.ezh.Inventory.utils.common.dto.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +26,9 @@ public class AuthServiceClient {
 
     @Value("${auth.service.url}")
     private String authServiceUrl;
+
+    @Value("${service.internal.secret:}")
+    private String internalSecret;
 
     public UserDto getUserDetailsById(Long userId) {
         URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
@@ -66,9 +67,14 @@ public class AuthServiceClient {
 
 
     public Map<Long, UserMiniDto> getBulkUserDetails(List<Long> ids) {
+        return getBulkUserDetails(ids, false);
+    }
+
+    public Map<Long, UserMiniDto> getBulkUserDetails(List<Long> ids, Boolean includeAddress) {
         URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
                 .path("/api/v1/user/bulk")
                 .queryParam("ids", ids)
+                .queryParam("address", includeAddress)
                 .build()
                 .toUri();
 
@@ -131,5 +137,87 @@ public class AuthServiceClient {
                     tenantId, response.getStatusCode(), response.getBody());
             throw new RuntimeException("Failed to fetch tenant details from Auth Service");
         }
+    }
+
+
+    /**
+     * Fetches a specific integration (like RAZORPAY) from the Auth Service
+     * for the current tenant.
+     */
+    public IntegrationDto getIntegrationByType(IntegrationType type) {
+        URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
+                .path("/api/v1/integrations/by-type") // Adjust path to match your Auth Controller
+                .queryParam("type", type)
+                .build()
+                .toUri();
+
+        HttpHeaders headers = createAuthHeaders();
+
+        log.info("Calling Auth Service to fetch integration: {} for current tenant", type);
+
+        ResponseEntity<ExternalApiResponse<IntegrationDto>> response = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ExternalApiResponse<IntegrationDto>>() {
+                }
+        );
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            return response.getBody().getData();
+        } else {
+            log.error("Failed to fetch integration {}. Status: {}", type, response.getStatusCode());
+            throw new RuntimeException("Integration configuration not found for: " + type);
+        }
+    }
+
+
+    /**
+     * Fetches a tenant's Razorpay integration without a user JWT.
+     * Used in webhook flows where no HTTP request context is available.
+     * Sends {@code X-Internal-Secret} and {@code X-Tenant-Id} headers so the
+     * auth service can authenticate the internal call and scope the response.
+     */
+    public IntegrationDto getIntegrationByTypeForTenant(IntegrationType type, Long tenantId) {
+        URI uri = UriComponentsBuilder.fromUriString(authServiceUrl)
+                .path("/api/v1/integrations/by-type")
+                .queryParam("type", type)
+                .build()
+                .toUri();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Internal-Secret", internalSecret);
+        headers.set("X-Tenant-Id", String.valueOf(tenantId));
+
+        log.info("Calling Auth Service (internal) to fetch integration: {} for tenantId: {}", type, tenantId);
+
+        ResponseEntity<ExternalApiResponse<IntegrationDto>> response = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<ExternalApiResponse<IntegrationDto>>() {
+                }
+        );
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            return response.getBody().getData();
+        } else {
+            log.error("Failed to fetch integration {} for tenantId {}. Status: {}", type, tenantId, response.getStatusCode());
+            throw new RuntimeException("Integration configuration not found for tenantId=" + tenantId + ", type=" + type);
+        }
+    }
+
+    /**
+     * Helper to avoid repeating header logic
+     */
+    private HttpHeaders createAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String token = request.getHeader("Authorization");
+        if (token != null) {
+            headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
+        }
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
     }
 }

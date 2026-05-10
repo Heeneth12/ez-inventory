@@ -9,7 +9,9 @@ import org.springframework.web.context.annotation.RequestScope;
 @RequestScope
 public class UserContext {
     private Long userId;
+    private String userUuid;
     private String email;
+    private String tenantUuid;
     private Long tenantId;
     private String userType;
     private String roles;

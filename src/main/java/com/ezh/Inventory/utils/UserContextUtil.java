@@ -19,6 +19,8 @@ public class UserContextUtil {
         return null;
     }
 
+    // Standard Getters
+
     public static Long getUserId() {
         JwtAuthentication auth = getAuth();
         return auth != null ? auth.getUserId() : null;
@@ -29,11 +31,46 @@ public class UserContextUtil {
         return auth != null ? auth.getTenantId() : null;
     }
 
+    /**
+     * Retrieves the User UUID from the security context.
+     */
+    public static String getUserUuid() {
+        JwtAuthentication auth = getAuth();
+        return auth != null ? auth.getUserUuid() : null;
+    }
+
+    /**
+     * Retrieves the Tenant UUID from the security context.
+     */
+    public static String getTenantUuid() {
+        JwtAuthentication auth = getAuth();
+        return auth != null ? auth.getTenantUuid() : null;
+    }
+
     public static String getEmail() {
         JwtAuthentication auth = getAuth();
         return auth != null ? auth.getEmail() : null;
     }
 
+    // "Or Throw" Methods for UUIDs
+
+    public static String getUserUuidOrThrow() throws CommonException {
+        String userUuid = getUserUuid();
+        if (userUuid == null) {
+            throw new CommonException("User UUID missing in request", HttpStatus.UNAUTHORIZED);
+        }
+        return userUuid;
+    }
+
+    public static String getTenantUuidOrThrow() throws CommonException {
+        String tenantUuid = getTenantUuid();
+        if (tenantUuid == null) {
+            throw new CommonException("Tenant UUID missing in request", HttpStatus.UNAUTHORIZED);
+        }
+        return tenantUuid;
+    }
+
+    // Existing "Or Throw" Methods
 
     public static Long getTenantIdOrThrow() throws CommonException {
         Long tenantId = getTenantId();

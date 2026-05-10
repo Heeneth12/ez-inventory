@@ -7,7 +7,7 @@ import lombok.*;
 @Setter
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
+@AllArgsConstructor 
 public class ApprovalActionDto {
     private Long requestId;
     private ApprovalStatus status; // APPROVED or REJECTED

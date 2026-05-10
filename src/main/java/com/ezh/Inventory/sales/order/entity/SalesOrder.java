@@ -48,4 +48,10 @@ public class SalesOrder extends AbstractFinancialHeader {
 
     // The fields: itemGrossTotal, itemTotalDiscount, itemTotalTax, flatDiscountRate,
     // flatTaxRate, and grandTotal are all inherited from AbstractFinancialHeader!
+
+    @Column(name = "created_by", length = 50)
+    private String createdBy;
+
+    @Column(name = "updated_by", length = 50)
+    private String updatedBy;
 }

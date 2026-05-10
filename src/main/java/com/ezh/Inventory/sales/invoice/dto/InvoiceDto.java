@@ -26,6 +26,8 @@ public class InvoiceDto {
     private Long salesOrderId;
     private String salesOrderNumber;
     private SalesOrderDto salesOrderDto;
+    private Long deliveryId;
+    private String deliveryNumber;
     private Long customerId;
     private Long warehouseId;
     private String customerName;
